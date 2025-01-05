@@ -1,0 +1,8 @@
+
+
+* RBF kernel inside NN V ???
+* add augmentations V
+* Train in Kaggle
+* Move camera upper, cannot see turns
+* syncronization,inference-time latency matching like in UMI
+* Add IMU to collect data
