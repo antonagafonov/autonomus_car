@@ -5,6 +5,11 @@ import lgpio
 import numpy as np
 from datetime import datetime
 
+def get_time():
+    now = datetime.now()
+    formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:02d}"
+    return formatted_time
+
 def calibrate_steering(turn,max_turn = 0.8):
     if turn > 0:
         return max(turn-(1-max_turn),0)
@@ -12,6 +17,7 @@ def calibrate_steering(turn,max_turn = 0.8):
         return min(turn+(1-max_turn),0)
     else:
         return 0
+    
 def get_time():
     now = datetime.now()
     formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:02d}"
@@ -89,6 +95,7 @@ class VehicleSteering(threading.Thread):
 
         self.startup = True
         self.mySpeed = 0
+        self.straight_count = 0
 
     def run(self):
         """Main loop to handle motor commands."""
@@ -103,12 +110,23 @@ class VehicleSteering(threading.Thread):
             except Exception:
                 pass
 
-    def move(self,speed=0.5,turn=0,boost = 0,t=0.05, steering_offset=0.2):
+    def move(self,speed=0.5,turn=0,boost = 0,t=0.05, steering_offset=0.0,s = 80):
+        if abs(turn) < 0.1:
+            self.straight_count += 1
+        else:
+            self.straight_count = 0
+        # inject noise to the steering
+        # if self.straight_count > 10:
+        #     print("injecting noise!")
+        #     # inject random steering between 0.3 to 0.5 
+        #     turn = np.random.uniform(0.9,1)
+        #     # sample 1 or -1 for left or right
+        #     turn = turn * np.random.choice([-1,1])
+        #     self.straight_count = 0
         # Apply steering offset
         if speed > 0.05:
             if abs(turn) < 0.1:
                 turn += steering_offset
-        s = 60
         speed = round(speed * (s + (100-s) * boost),1)  # Boost increases speed by 20%
         turn = round(turn * 100,1)
 
@@ -135,16 +153,22 @@ class VehicleSteering(threading.Thread):
         if leftSpeed>0:
             GPIO.output(self.in1a,GPIO.HIGH)
             GPIO.output(self.in2a,GPIO.LOW)
-        else:
+        elif leftSpeed < 0:
             GPIO.output(self.in1a,GPIO.LOW)
             GPIO.output(self.in2a,GPIO.HIGH)
-            
+        else:
+            GPIO.output(self.in1a, GPIO.LOW)
+            GPIO.output(self.in2a, GPIO.LOW)  # Stop if speed is zero
+
         if rightSpeed>0:
             GPIO.output(self.in1b,GPIO.HIGH)
             GPIO.output(self.in2b,GPIO.LOW)
-        else:
+        elif rightSpeed < 0:
             GPIO.output(self.in1b,GPIO.LOW)
             GPIO.output(self.in2b,GPIO.HIGH)
+        else:
+            GPIO.output(self.in1b, GPIO.LOW)
+            GPIO.output(self.in2b, GPIO.LOW)  # Stop if speed is zero
         sleep(t)
 
     def stop_motors(self, t=0):

@@ -2,8 +2,8 @@ import time
 import os
 import cv2  # For web camera support
 import numpy as np
-from picamera2 import Picamera2
 import multiprocessing as mp
+from picamera2 import Picamera2, libcamera
 
 os.environ["LIBCAMERA_LOG_LEVELS"] = "ERROR"  # Only log errors
 
@@ -14,7 +14,7 @@ class ImageCapture:
     The latest image is always stored in shared memory.
     """
 
-    def __init__(self):
+    def __init__(self, size=(640, 480)):
 
         # Shared memory and synchronization primitives
         self.manager = mp.Manager()
@@ -23,18 +23,27 @@ class ImageCapture:
         self.stop_event = self.manager.Event() 
         # Process for capturing images
         self.process = mp.Process(target=self._capture_process)
-
+        self.size = size
+        
     def configure_camera(self):
             """Configures the PiCamera2 for image capture."""
             if self.camera:
-                config = self.camera.create_still_configuration(main={"size": (640, 480)})
-                # camera_config["transform"] = libcamera.Transform(hflip=1, vflip=1)
+                config = self.camera.create_still_configuration(main={"size": self.size},transform=libcamera.Transform(vflip=1, hflip=1))
                 self.camera.configure(config)
                 self.camera.start()
                 time.sleep(2)  # Allow the camera to initialize
                 print("Camera configured successfully.")
             else:
                 print("Camera not available, cannot configure.")
+
+    def list_available_sizes(self):
+        """Lists all available resolutions for the PiCamera2."""
+        if self.camera:
+            camera_info = self.camera.camera_properties
+            resolutions = camera_info.get("PixelArrayActiveAreas", [])
+            print("Available resolutions:", resolutions)
+        else:
+            print("Camera not available.")
 
     def start_capturing(self):
         self.process.start()
@@ -49,6 +58,7 @@ class ImageCapture:
             self.camera = None
             
         self.configure_camera()
+        print(self.list_available_sizes())
         """Capture images in a separate process."""
         if self.camera is None:
             print("Camera not initialized. Exiting capture process.")
@@ -77,10 +87,10 @@ class ImageCapture:
         if img is None:
             print("No image to preprocess.")
             return None
-        img = img[240:, :, :]  # Crop the bottom half
-        img = cv2.resize(img, (360, 120))  # Resize
+        img = img[120:, :, :]  # Crop the bottom half
+        img = cv2.resize(img, (320, 180))  # Resize
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
-        # img = img / 255.0  # Normalize
+        img = img / 255.0  # Normalize
         img = np.expand_dims(img, axis=-1)  # Add channel dimension
         # print(f"Preprocessed image shape: {img.shape}")
         return img
@@ -98,8 +108,8 @@ class ImageCapture:
         """
         with self.lock:
             frame = self.shared_frame[0]
-            return frame
-            # return self.preProcess(frame),frame
+            # return frame
+            return self.preProcess(frame),frame
 
     def erase_frame(self):
         """Clears the shared frame."""
@@ -108,13 +118,15 @@ class ImageCapture:
             self.shared_frame[0] = None
 
 if __name__ == "__main__":
-    cam = ImageCapture()
+    cam = ImageCapture(size = (1280, 960))
     cam.start_capturing()  # Start the capture process
     time.sleep(5) # Wait for the camera to initialize
 
     try:
         for idx in range(5):  # Capture 5 frames as a test
-            frame = cam.get_frame()
+            tic = time.time()
+            _,frame = cam.get_frame()
+            print(f"Time to get frame: {time.time() - tic:.3f} s")
             if frame is not None:
                 # print(f"Captured frame shape: {frame.shape}")
                 # save to file with idx name

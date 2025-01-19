@@ -7,6 +7,7 @@ from utils import VehicleSteering,calibrate_steering
 from DataCollector import DataCollector
 from Camera import ImageCapture
 import os
+from utils import get_time
 
 # Assuming Joystick and VehicleSteering classes are imported from elsewhere
     
@@ -33,8 +34,9 @@ def main():
             # Retrieve the state from the joystick (you can define the joystick states as needed)
             # Here I assume 'state' is a dictionary with 'speed' and 'turn' as keys
             state = joystick.get()  # get_state() should return current joystick state
-
-            im = camera.get_frame()
+            print("State: ", state)
+            _,im = camera.get_frame()
+            print("Time:",get_time())
             if im is None:
                 print("No frame captured, skipping iteration.")
                 continue
@@ -53,7 +55,7 @@ def main():
                     speed = 0.0
                     vehicle_steering.stop_motors()
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
-                turn = calibrate_steering(turn)
+
                 print("Speed: {}, Turn: {}".format(speed, turn))
                 vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0))
             if state["recording"] == 1:

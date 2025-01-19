@@ -25,7 +25,7 @@ class DataCollector(threading.Thread):
         name = f"{self.idx:06d}.png"
         filename = os.path.join(self.output_dir, name) 
         # save as png with opencv in RGB format
-        # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, image)
         # print("Image saved")
         save_state = copy.deepcopy(state)
