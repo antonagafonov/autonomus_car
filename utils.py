@@ -388,7 +388,7 @@ class PIDController:
         self.Kd_l = 0.0002
 
         # PID parameters for positive deviation
-        self.Kp_r = 0.008 
+        self.Kp_r = 0.010 
         self.Ki_r = 0.001
         self.Kd_r = 0.0002
 
