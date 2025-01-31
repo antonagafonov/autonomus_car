@@ -94,11 +94,11 @@ class ImageCapture:
             print("Capturing images...")
             while not self.stop_event.is_set():
 
-                # Apply updated settings dynamically
-                self.camera.set_controls({
-                    "AnalogueGain": self.settings["AnalogueGain"],
-                    "AwbEnable": self.settings["AwbEnable"],
-                })
+                # # Apply updated settings dynamically
+                # self.camera.set_controls({
+                #     "AnalogueGain": self.settings["AnalogueGain"],
+                #     "AwbEnable": self.settings["AwbEnable"],
+                # })
 
                 frame = self.camera.capture_array()
 

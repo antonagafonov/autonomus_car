@@ -7,6 +7,61 @@ from datetime import datetime
 import cv2
 import matplotlib.pyplot as plt
 
+def create_data_directories():
+    """Ensure the necessary directories for data are created."""
+    data_dir = "/home/toon/data/temp_data"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+    return data_dir
+
+def process_camera_state(state, camera):
+    """Adjust camera settings based on joystick state."""
+    if state["camera_0"] == 1:
+        camera.set_awb(True)
+    else:
+        camera.set_awb(False)
+
+    if state["camera_1"] == 1:
+        camera.set_analogue_gain(5.0)
+    else:
+        camera.set_analogue_gain(3.0)
+
+def process_pid_control(pid, cte):
+    """Calculate steering angle using PID controller."""
+    return pid.control(cte=cte, dt=0.075)
+
+def save_images_threaded(img_dict):
+    """Save images in a separate thread."""
+    thread = threading.Thread(target=save_images, args=(img_dict,))
+    thread.start()
+
+def handle_vehicle_controls(state, vehicle_steering, steer_pid, len_contours,pid):
+    """Handle the vehicle's steering and speed based on joystick state."""
+    betha = 0.3
+    prev_enable_pid = 0
+    if state["enable_pid"] == 1:
+        prev_enable_pid = 1
+        if abs(steer_pid) > 0.3 and abs(steer_pid) < 0.6:
+            state["forward"] = 0.3 + betha
+        elif abs(steer_pid) > 0.6:
+            state["forward"] = 0.15 + betha
+        else:
+            state["forward"] = 0.4 + betha
+        if len_contours == 1:
+            state["forward"] = 0.3 + betha
+        state["steering"] = steer_pid
+    elif state["enable_pid"] == 0 and prev_enable_pid == 1:
+        pid.reset()
+        state["forward"] = 0
+        state["steering"] = 0
+        prev_enable_pid = 0
+    else:
+        pass
+
+    speed = state.get("forward", 0) - state.get("backward", 0)
+    turn = state.get("steering", 0)
+    vehicle_steering.move(speed=speed, turn=-turn, boost=state.get("boost", 0), t=0.025)
+
 # Function to save image in a separate thread
 def save_images(im_dict):
     # read the images from dictionary and save
@@ -633,7 +688,6 @@ class VehicleSteering(threading.Thread):
     def stop(self):
         with self.cleanup_lock:
             if not self.cleanup_done:
-
                 try:
                     print("Stopping PWM and cleaning up...")
                     GPIO.cleanup()  # Clean up GPIO resources

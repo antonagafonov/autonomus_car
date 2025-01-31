@@ -34,30 +34,17 @@ def main():
     # wait 2 seconds for the threads to start
     time.sleep(5)
     m_idx = 0
-    pid_reset_current_idx = 0
-    steering_angles = []
+
     prev_enable_pid = 0
-    right_turn_pid_reset = False
+    loop_times = []
     try:
         while not stop_event.is_set():
             loop_start_time = time.time()
-            if m_idx - pid_reset_current_idx > 100:
-                right_turn_pid_reset = False
 
             # Retrieve the state from the joystick (you can define the joystick states as needed)
             # Here I assume 'state' is a dictionary with 'speed' and 'turn' as keys
             state = joystick.get()  # get_state() should return current joystick state
-            
-            if state["camera_0"] == 1:
-                camera.set_awb(True)
-            else:
-                camera.set_awb(False)
-
-            if state["camera_1"] == 1:
-                camera.set_analogue_gain(5.0)
-            else:
-                camera.set_analogue_gain(3.0)
-                
+        
             # print("1. Time:",m_idx, get_time())
             _,im = camera.get_frame()
             # print("2. Time:",m_idx, get_time())
@@ -116,9 +103,7 @@ def main():
                 pass
 
             # print("Steering Angle:",steer_pid)
-            steering_angles.append(steer_pid)
-            # print("7. Time:",m_idx, get_time())
-            
+  
             if im is None:
                 print("No frame captured, skipping iteration.")
                 continue
@@ -152,23 +137,35 @@ def main():
             m_idx += 1
             loop_end_time = time.time()
             # print("12. Time:",m_idx, get_time())
-            print("Loop time:", loop_end_time - loop_start_time)
+            loop_time = loop_end_time - loop_start_time
+            print("Loop time:", loop_time)
+            loop_times.append(loop_time)
+            if len(loop_times) > 10:
+                print("Average loop time:", sum(loop_times) / len(loop_times))
     except KeyboardInterrupt:
         # Graceful exit on keyboard interrupt (Ctrl+C)
         print("Stopping the program...")
 
     finally:
-        # Graceful cleanup
-        data_collector.save_data_to_file()
-        print("Stopping all components...")
-        stop_event.set()  # Signal threads to stop
-        vehicle_steering.exit_program()
-        joystick.join()  # Wait for joystick thread to finish
-        vehicle_steering.join()  # Wait for steering thread to finish
-        print("Program exited cleanly.")
-        atexit.register(GPIO.cleanup)
-        os._exit(0)  # Force exit if necessary
+        try:
+            # Graceful cleanup
+            data_collector.save_data_to_file()
+            print("Stopping all components...")
+            stop_event.set()  # Signal threads to stop
+            vehicle_steering.exit_program()
+            joystick.join()  # Wait for joystick thread to finish
+            vehicle_steering.join()  # Wait for steering thread to finish
 
+            # GPIO cleanup
+            print("Cleaning up GPIO...")
+            GPIO.cleanup()  # Clean up any GPIO settings
+            print("Program exited cleanly.")
+
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+        finally:
+            # Force exit if necessary
+            os._exit(0)  # Force exit if cleanup fails
 if __name__ == '__main__':
     main()
 
