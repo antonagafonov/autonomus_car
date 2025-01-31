@@ -69,14 +69,48 @@ def lane_from_R_inv(image,trsh = 180):
     R_trsh = cv2.threshold(R, trsh, 255, cv2.THRESH_BINARY)[1]
     return R_trsh
 
+def white_balance(img):
+    """
+    Apply white balance correction using the Gray World Assumption.
+    
+    Args:
+        img (numpy.ndarray): Input BGR image.
+    
+    Returns:
+        numpy.ndarray: White-balanced BGR image.
+    """
+    result = img.copy()
+    avg_b = np.mean(result[:, :, 0])
+    avg_g = np.mean(result[:, :, 1])
+    avg_r = np.mean(result[:, :, 2])
+
+    avg_gray = (avg_b + avg_g + avg_r) / 3
+
+    scale_b = avg_gray / avg_b
+    scale_g = avg_gray / avg_g
+    scale_r = avg_gray / avg_r
+
+    result[:, :, 0] = np.clip(result[:, :, 0] * scale_b, 0, 255)
+    result[:, :, 1] = np.clip(result[:, :, 1] * scale_g, 0, 255)
+    result[:, :, 2] = np.clip(result[:, :, 2] * scale_r, 0, 255)
+
+    return result.astype(np.uint8)
+
+
 def hsv_green_mask(image,trsh = 120):
+    image = white_balance(image)
+
     # Convert BGR to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Define a broader green color range
-    lower_green = np.array([120, 80, 80])  # Adjusted lower bound for green in HSV
-    upper_green = np.array([180, 180, 180])  # Adjusted upper bound for green in HSV
+    # # Define a broader green color range
+    # lower_green = np.array([120, 80, 80])  # Adjusted lower bound for green in HSV
+    # upper_green = np.array([180, 180, 180])  # Adjusted upper bound for green in HSV
 
+    # Define a broader green color range
+    lower_green = np.array([20, 60, 20])  # Adjust if needed
+    upper_green = np.array([80, 255, 255]) 
+    
     # Create a mask to detect green
     mask = cv2.inRange(hsv, lower_green, upper_green)
     # apply gaussian blur
@@ -126,29 +160,31 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # _, threshold = cv2.threshold(inversed, cut_threshold, 255, cv2.THRESH_BINARY) # day threshold
     # print("threshold: ",threshold.shape)
     # make triangle cut on the top right corner and on the top left corner from middle of the heeight to middle of the width
+    # fill with zeros top part of threshold
+    threshold[:height//2, :] = 0
     cutted_threshold = threshold.copy()
 
-    cutted_threshold[:height//2, width//2:] = 0
-    cutted_threshold[:height//2, :width//2] = 0
-    # Define the vertices for the left triangle (bottom-left to top-left quarter width)
-    left_triangle = np.array([
-        [0, height],         # Bottom-left corner
-        [width // 3, 0],     # Top-left quarter of the width
-        [0, 0]               # Top-left corner
-    ], dtype=np.int32)
+    # cutted_threshold[:height//2, width//2:] = 0
+    # cutted_threshold[:height//2, :width//2] = 0
+    # # Define the vertices for the left triangle (bottom-left to top-left quarter width)
+    # left_triangle = np.array([
+    #     [0, height],         # Bottom-left corner
+    #     [width // 3, 0],     # Top-left quarter of the width
+    #     [0, 0]               # Top-left corner
+    # ], dtype=np.int32)
 
-    # Define the vertices for the right triangle (bottom-right to top-right three-quarters width)
-    right_triangle = np.array([
-        [width, height],        # Bottom-right corner
-        [width, 0],             # Top-right corner
-        [3 * width // 3, 0]     # Top-right three-quarters of the width
-    ], dtype=np.int32)
+    # # Define the vertices for the right triangle (bottom-right to top-right three-quarters width)
+    # right_triangle = np.array([
+    #     [width, height],        # Bottom-right corner
+    #     [width, 0],             # Top-right corner
+    #     [3 * width // 3, 0]     # Top-right three-quarters of the width
+    # ], dtype=np.int32)
 
-    # Create masks for the triangles
-    cv2.fillPoly(cutted_threshold, [left_triangle], 0)  # Mask out left triangle
-    cv2.fillPoly(cutted_threshold, [right_triangle], 0)  # Mask out right triangle
-    # apply median blur on cutted_threshold
-    cutted_threshold = cv2.medianBlur(cutted_threshold, 5)
+    # # Create masks for the triangles
+    # cv2.fillPoly(cutted_threshold, [left_triangle], 0)  # Mask out left triangle
+    # cv2.fillPoly(cutted_threshold, [right_triangle], 0)  # Mask out right triangle
+    # # apply median blur on cutted_threshold
+    # cutted_threshold = cv2.medianBlur(cutted_threshold, 5)
     
     # cv2.imwrite(f"/home/toon/data/blue_cutted_trsh_temp.png", cutted_threshold)
     # cutted_threshold = close_open(cutted_threshold,ksize = 21)
@@ -156,7 +192,7 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     countours_img = img_rgb.copy()
     return inversed,cutted_threshold, img_rgb,countours_img,width,height
 
-def process_contours(cutted_threshold,xl=20,xr=620,min_area=500,max_area = 4000):
+def process_contours(cutted_threshold,xl=20,xr=620,min_area=500,max_area = 6000):
 
     # find all clusters of white pixels in cutted_threshold
     contours, _ = cv2.findContours(cutted_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -347,12 +383,12 @@ class PIDController:
         - Kd: Derivative gain
         """
 
-        self.Kp_l = 0.006
+        self.Kp_l = 0.008
         self.Ki_l = 0.001
         self.Kd_l = 0.0002
 
         # PID parameters for positive deviation
-        self.Kp_r = 0.007 
+        self.Kp_r = 0.008 
         self.Ki_r = 0.001
         self.Kd_r = 0.0002
 
@@ -409,12 +445,12 @@ def get_deviation(im_input):
     pid_steer, pid_speed = None, None
 
     inversed,cutted_threshold, img_rgb,countours_img,width,height = process_image(im_input)
-    # 
+    
     contours = process_contours(cutted_threshold)
 
     cv2.drawContours(countours_img, contours, -1, (255, 0, 0), 3)
 
-    # countours_img = print_countour_info(contours,countours_img)
+    countours_img = print_countour_info(contours,countours_img)
 
     len_contours,_ , _, _, _,deviation,countours_img = get_motor_action(    filtered_contours = contours,
                                                                             width=cutted_threshold.shape[1],

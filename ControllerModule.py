@@ -28,8 +28,10 @@ class JoystickController(threading.Thread):
             "recording": 0,  # 0 (off), 1 (on)
             "exit": 0 ,      # 0 (off), 1 (on)
             "timestep": self.get_time(),
-            "enable_pid": 0
-        }
+            "enable_pid": 0,
+            "camera_0": 0,
+            "camera_1": 0,
+                    }
 
     def get_time(self):
         now = datetime.now()
@@ -80,6 +82,23 @@ class JoystickController(threading.Thread):
         elif button == 0:  # Button 2 pressed (backward)
             # print("Button 0 pressed: Backward ON")
             self.state["backward"] = 1
+
+        elif button == 2:  # Button 3 pressed (camera 0)
+            if self.state["camera_0"] == 1:
+                print("Button 2 pressed: Camera 0 OFF")
+                self.state["camera_0"] = 0
+            else:
+                print("Button 2 pressed: Camera 0 ON")
+                self.state["camera_0"] = 1
+                
+        elif button == 3:  # Button 4 pressed
+            if self.state["camera_1"] == 1:
+                print("Button 3 pressed: Camera 1 OFF")
+                self.state["camera_1"] = 0
+            else:
+                print("Button 3 pressed: Camera 1 ON")
+                self.state["camera_1"] = 1
+
         elif button == 8:
             print("Button 8 pressed: Exiting...")
             self.state["exit"] = 1
