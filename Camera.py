@@ -39,7 +39,15 @@ class ImageCapture:
                     # "AnalogueGain": 5.0,  # Increase gain to compensate for low light
                     # "AwbEnable": True,  # Auto white balance for better color
                     # "AnalogueGain": 5.0, # night
-                    "AnalogueGain": 1.20, # day
+                    # "AnalogueGain": 1.20, # day
+                    # camera.exposure_mode = 'night'
+                    # "ExposureTime": 150000,  # Adjust exposure time for night conditions
+                    "AnalogueGain": 5.0,     # Set analogue gain to brighten the image
+                    "AwbEnable": True,       # Enable auto white balance
+                    # "Saturation": 0.5,       # Adjust saturation
+                    # "Brightness": 0.5,       # Adjust brightness
+                    # "Contrast": 1.0,         # Set contrast
+                    # "Sharpness": 1.0, 
                 })
                 self.camera.start()
                 time.sleep(2)  # Allow the camera to initialize

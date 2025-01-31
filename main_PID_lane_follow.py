@@ -5,9 +5,10 @@ import atexit
 import RPi.GPIO as GPIO
 from queue import Queue
 from threading import Event
+import threading
 
 from ControllerModule import JoystickController
-from utils import VehicleSteering,calibrate_steering,get_deviation,PIDController,get_time
+from utils import VehicleSteering,save_images,calibrate_steering,get_deviation,PIDController,get_time
 from DataCollector import DataCollector
 from Camera import ImageCapture
 
@@ -57,10 +58,29 @@ def main():
             if not os.path.exists("/home/toon/data/temp_data"):
                 os.makedirs("/home/toon/data/temp_data")
             print("4. Time:",m_idx, get_time())
-            steer_pid = pid.control(cte = cte, dt = 0.086) 
+            steer_pid = pid.control(cte = cte, dt = 0.08)  # Calculate the steering angle using PID
             print("5. Time:",m_idx, get_time())
-            # cv2.imwrite(f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", countours_img)
-            # cv2.imwrite(f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", cutted_threshold)
+
+            # Prepare the filenames
+            img_filename = f"/home/toon/data/temp_data/img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
+            countours_filename = f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
+            cutted_threshold_filename = f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
+            # create dict with img_filename , countours_filename and cutted_threshold_filename as keys and images as values
+            img_dict = {}
+            print("5.1. Time:",m_idx, get_time())
+            img_dict[img_filename] = im
+            img_dict[countours_filename] = countours_img
+            img_dict[cutted_threshold_filename] = cutted_threshold
+            print("5.2. Time:",m_idx, get_time())
+            # Create threads for saving images
+            thread = threading.Thread(target=save_images, args=(img_dict,))
+            print("5.3. Time:",m_idx, get_time())
+            # Start threads
+            thread.start()
+            print("5.4. Time:",m_idx, get_time())
+            # Optionally, join the threads to ensure they finish before moving on to the next iteration
+            
+            print("5.5. Time:",m_idx, get_time())
             print("6. Time:",m_idx, get_time())
 
             betha = 0.15
@@ -94,12 +114,14 @@ def main():
             if state["recording"] == 1:
                 print("Recording data...")
                 data_collector.saveData(im, state)
+            print("8. Time:",m_idx, get_time())
             if state:  # Check if there's a valid state
                 # Joystick state: {'steering': -1,1,0, 'forward': 1,0, 'backward': 1,0}
                 if state.get("exit", 0) == 1:
                     vehicle_steering.stop_motors()
                     print("Exiting the program...")
                     break
+                print("9. Time:",m_idx, get_time())
                 if state["forward"] > 0 and state["backward"] == 0:
                     speed = state["forward"] 
                 elif state["backward"] > 0 and state["forward"] == 0:
@@ -107,14 +129,17 @@ def main():
                 else:
                     speed = 0.0
                     vehicle_steering.stop_motors()
+                print("10. Time:",m_idx, get_time())
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
                 print("Speed: {}, Turn: {}".format(speed, turn))
-                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0))
-                print("8. Time:",m_idx,get_time())
+                print("10.1. Time:",m_idx, get_time())
+                # self,speed=0.5,turn=0,boost = 0,t=0.05, steering_offset=0.0,s = 80
+                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0)
+                print("11. Time:",m_idx,get_time())
             # time.sleep(0.05)  # Adjust the sleep time to control the loop frequency
             m_idx += 1
             loop_end_time = time.time()
-            print("9. Time:",m_idx, get_time())
+            print("12. Time:",m_idx, get_time())
             print("Loop time:", loop_end_time - loop_start_time)
     except KeyboardInterrupt:
         # Graceful exit on keyboard interrupt (Ctrl+C)

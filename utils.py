@@ -7,6 +7,12 @@ from datetime import datetime
 import cv2
 import matplotlib.pyplot as plt
 
+# Function to save image in a separate thread
+def save_images(im_dict):
+    # read the images from dictionary and save
+    for key in im_dict:
+        cv2.imwrite(key, im_dict[key])
+
 def close_open(im,ksize = 21):
     # Define a kernel for morphological operations
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))  # Adjust size as needed
@@ -63,13 +69,13 @@ def lane_from_R_inv(image,trsh = 180):
     R_trsh = cv2.threshold(R, trsh, 255, cv2.THRESH_BINARY)[1]
     return R_trsh
 
-def hsv_green_mask(image,trsh = 150):
+def hsv_green_mask(image,trsh = 120):
     # Convert BGR to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # Define a broader green color range
-    lower_green = np.array([30, 40, 40])  # Adjusted lower bound for green in HSV
-    upper_green = np.array([90, 255, 255])  # Adjusted upper bound for green in HSV
+    lower_green = np.array([120, 80, 80])  # Adjusted lower bound for green in HSV
+    upper_green = np.array([180, 180, 180])  # Adjusted upper bound for green in HSV
 
     # Create a mask to detect green
     mask = cv2.inRange(hsv, lower_green, upper_green)
@@ -81,6 +87,7 @@ def hsv_green_mask(image,trsh = 150):
     mask = cv2.threshold(mask, trsh, 255, cv2.THRESH_BINARY)[1]
 
     return mask
+
 def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # img = im_input[200:,:,:]
     img = im_input[200:440,:,:]
@@ -88,7 +95,7 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # convert to RGB
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    threshold = hsv_green_mask(img_rgb)
+    threshold = hsv_green_mask(img)
 
     # img_green_channel = img_rgb[:,:,1]
 
@@ -157,12 +164,12 @@ def process_contours(cutted_threshold,xl=20,xr=620,min_area=500,max_area = 4000)
     filtered_contours = []
 
     for contour in contours:
-        print("len(contour):",len(contour),"cv2.contourArea(contour):",cv2.contourArea(contour))
+        # print("len(contour):",len(contour),"cv2.contourArea(contour):",cv2.contourArea(contour))
         M = cv2.moments(contour)
         if M["m00"] != 0:  # check if contour is non-zero area
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
-            print(cX, cY)
+            # print(cX, cY)
             # Filter contours based on x-coordinate of centroid
             if (xl < cX < xr) and (cv2.contourArea(contour) > min_area) and (cv2.contourArea(contour) < max_area):
                 filtered_contours.append(contour)
@@ -228,7 +235,7 @@ def get_motor_action(   filtered_contours=None,
                         img= None,
                         height=None,
                         one_line_delta = 35,
-                        right_turn_coeff = 2
+                        right_turn_coeff = 1.7
                     ):
     steer_action, speed_action = None, None
     angle_r, angle_l = None, None
@@ -236,12 +243,12 @@ def get_motor_action(   filtered_contours=None,
 
     # if no contours detected, stop the motors
     if len(filtered_contours) == 0:
-        print('No contours detected, stopping motors.')
+        # print('No contours detected, stopping motors.')
         steer_action, speed_action,deviation = None, None, None
 
     # one countour detected
     elif len(filtered_contours) == 1:
-        print('One contour detected, steering outwards this line.')
+        # print('One contour detected, steering outwards this line.')
         M = cv2.moments(filtered_contours[0])
         # getting the centroid of the contour
         if M["m00"] != 0:
@@ -249,7 +256,7 @@ def get_motor_action(   filtered_contours=None,
             cY = int(M["m01"] / M["m00"])
 
         slope = calculate_slope(filtered_contours[0])
-        print('Slope:', slope)
+        # print('Slope:', slope)
         if slope < -0.1:
         # if cX < width // 2 - (width // 4):
             # steer right
@@ -262,11 +269,11 @@ def get_motor_action(   filtered_contours=None,
             deviation = -one_line_delta
         else:
             # steer straight
-            print('Contour is in the center, steering straight.')
+            # print('Contour is in the center, steering straight.')
             steer_action, speed_action,deviation = 0, 1, 0
     # two countours detected
     elif len(filtered_contours) == 2:
-        print('Two contours detected, steering inwards.')
+        # print('Two contours detected, steering inwards.')
         # check if centers of both lanes are in the middle of each contour, if yes, go straight
         M1 = cv2.moments(filtered_contours[0])
         M2 = cv2.moments(filtered_contours[1])
@@ -407,7 +414,7 @@ def get_deviation(im_input):
 
     cv2.drawContours(countours_img, contours, -1, (255, 0, 0), 3)
 
-    countours_img = print_countour_info(contours,countours_img)
+    # countours_img = print_countour_info(contours,countours_img)
 
     len_contours,_ , _, _, _,deviation,countours_img = get_motor_action(    filtered_contours = contours,
                                                                             width=cutted_threshold.shape[1],
@@ -526,14 +533,7 @@ class VehicleSteering(threading.Thread):
             self.straight_count += 1
         else:
             self.straight_count = 0
-        # inject noise to the steering
-        # if self.straight_count > 10:
-        #     print("injecting noise!")
-        #     # inject random steering between 0.3 to 0.5 
-        #     turn = np.random.uniform(0.9,1)
-        #     # sample 1 or -1 for left or right
-        #     turn = turn * np.random.choice([-1,1])
-        #     self.straight_count = 0
+
         # Apply steering offset
         if speed > 0.05:
             if abs(turn) < 0.1:
@@ -579,8 +579,9 @@ class VehicleSteering(threading.Thread):
             GPIO.output(self.in2b,GPIO.HIGH)
         else:
             GPIO.output(self.in1b, GPIO.LOW)
-            GPIO.output(self.in2b, GPIO.LOW)  # Stop if speed is zero
-        sleep(t)
+            GPIO.output(self.in2b, GPIO.LOW)
+        if t>0: # Stop if speed is zero
+            sleep(t)
 
     def stop_motors(self, t=0):
         """Stop the motors."""
