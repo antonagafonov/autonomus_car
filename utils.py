@@ -52,47 +52,72 @@ def segment_green_lanes(image):
 
     return mask, result
 
-def process_image(im_input,cut_threshold = 180,thresh_percentile = 95):
+def lane_from_R_inv(image,trsh = 180):
+    # make inverse of red channel
+    R = 255 - image[:, :, 0]
+    # apply gaussian blur
+    R = cv2.GaussianBlur(R, (21, 21), 0)
+    # apply median blur
+    R = cv2.medianBlur(R, 21)
+    # apply threshold
+    R_trsh = cv2.threshold(R, trsh, 255, cv2.THRESH_BINARY)[1]
+    return R_trsh
+
+def hsv_green_mask(image,trsh = 150):
+    # Convert BGR to HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Define a broader green color range
+    lower_green = np.array([30, 40, 40])  # Adjusted lower bound for green in HSV
+    upper_green = np.array([90, 255, 255])  # Adjusted upper bound for green in HSV
+
+    # Create a mask to detect green
+    mask = cv2.inRange(hsv, lower_green, upper_green)
+    # apply gaussian blur
+    mask = cv2.GaussianBlur(mask, (21, 21), 0)
+    # apply median blur
+    mask = cv2.medianBlur(mask, 21)
+    # apply threshold on mask
+    mask = cv2.threshold(mask, trsh, 255, cv2.THRESH_BINARY)[1]
+
+    return mask
+def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # img = im_input[200:,:,:]
     img = im_input[200:440,:,:]
     width, height = img.shape[1], img.shape[0]
     # convert to RGB
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    # make hsv image
-    # i have green lanes so i want to extract green color from hsv
 
-    img_green_channel = img_rgb[:,:,1]
-    # cv2.imwrite(f"/home/toon/data/img_rgb_temp.png", img_rgb)
-    # cv2.imwrite(f"/home/toon/data/green_img_temp.png", img_green_channel)
-    # cv2.imwrite(f"/home/toon/data/red_img_temp.png", img_rgb[:,:,0])
-    # cv2.imwrite(f"/home/toon/data/blue_img_temp.png", img_rgb[:,:,2])
-    # cv2.imwrite(f"/home/toon/data/green_inv_img_temp.png", cv2.bitwise_not(img_rgb[:,:,1]))
-    # cv2.imwrite(f"/home/toon/data/red_inv_img_temp.png", cv2.bitwise_not(img_rgb[:,:,0]))
-    # cv2.imwrite(f"/home/toon/data/blue_inv_img_temp.png", cv2.bitwise_not(img_rgb[:,:,2]))
-    # cv2.imwrite(f"/home/toon/data/blue_inv_img_temp.png", cv2.bitwise_not(img_rgb[:,:,2]))
-    # convert to grayscale
+    threshold = hsv_green_mask(img_rgb)
+
+    # img_green_channel = img_rgb[:,:,1]
+
+    # # convert to grayscale
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # apply gaussian blur
-    img_blured = cv2.GaussianBlur(img_gray, (21, 21), 0)
-    img_green_channel_blured = cv2.GaussianBlur(img_green_channel, (21, 21), 0)
 
-    # invert the image
+    # # apply gaussian blur
+    img_blured = cv2.GaussianBlur(img_gray, (21, 21), 0)
+    # img_green_channel_blured = cv2.GaussianBlur(img_green_channel, (21, 21), 0)
+
+    # # invert the image
     inversed = cv2.bitwise_not(img_blured)
+    
     # find mean and 0.3 top bright colors threshold of the image for thresholding
     # mean = np.mean(inversed)
     # dynamic_cut_threshold = int(mean * 1.3)
     # print("cut_threshold: ",dynamic_cut_threshold)
     # threshold the image 140 to 255
     
-    dynamic_thresh = np.percentile(inversed, thresh_percentile)
+    # dynamic_thresh = np.percentile(inversed, thresh_percentile)
     
-    print("dynamic_thresh: ",dynamic_thresh)
+    # print("dynamic_thresh: ",dynamic_thresh)
     # night_tresh = 220
     # torch_tresh = 170
-    _, threshold = cv2.threshold(cv2.GaussianBlur(cv2.bitwise_not(img_rgb[:,:,2]), (21, 21), 0), cut_threshold, 255, cv2.THRESH_BINARY) # night threshold
-    # cv2.imwrite(f"/home/toon/data/blue_trsh_temp.png", threshold)
-    # _, threshold = cv2.threshold(inversed, dynamic_thresh, 255, cv2.THRESH_BINARY) # day threshold
+
+    # _, threshold = cv2.threshold(cv2.GaussianBlur(cv2.bitwise_not(img_rgb[:,:,2]), (21, 21), 0), cut_threshold, 255, cv2.THRESH_BINARY) # night threshold
     
+    # _, threshold = cv2.threshold(inversed, cut_threshold, 255, cv2.THRESH_BINARY) # day threshold
+    # print("threshold: ",threshold.shape)
     # make triangle cut on the top right corner and on the top left corner from middle of the heeight to middle of the width
     cutted_threshold = threshold.copy()
 
@@ -122,9 +147,9 @@ def process_image(im_input,cut_threshold = 180,thresh_percentile = 95):
     # cutted_threshold = close_open(cutted_threshold,ksize = 21)
 
     countours_img = img_rgb.copy()
-    return inversed,cutted_threshold, img_rgb,img_green_channel,countours_img,width,height
+    return inversed,cutted_threshold, img_rgb,countours_img,width,height
 
-def process_contours(cutted_threshold,xl=20,xr=620,min_area=200,max_area = 4000):
+def process_contours(cutted_threshold,xl=20,xr=620,min_area=500,max_area = 4000):
 
     # find all clusters of white pixels in cutted_threshold
     contours, _ = cv2.findContours(cutted_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -203,7 +228,7 @@ def get_motor_action(   filtered_contours=None,
                         img= None,
                         height=None,
                         one_line_delta = 35,
-                        right_turn_coeff = 1.5
+                        right_turn_coeff = 2
                     ):
     steer_action, speed_action = None, None
     angle_r, angle_l = None, None
@@ -376,7 +401,7 @@ class PIDController:
 def get_deviation(im_input):
     pid_steer, pid_speed = None, None
 
-    inversed,cutted_threshold, img_rgb,img_green_channel,countours_img,width,height = process_image(im_input)
+    inversed,cutted_threshold, img_rgb,countours_img,width,height = process_image(im_input)
     # 
     contours = process_contours(cutted_threshold)
 
@@ -389,7 +414,7 @@ def get_deviation(im_input):
                                                                             img = countours_img,
                                                                             height=cutted_threshold.shape[0])   
     print("deviation: ",deviation)
-    return len_contours,deviation,countours_img,cutted_threshold,inversed,img_green_channel
+    return len_contours,deviation,countours_img,cutted_threshold,inversed
 
 def get_time():
     now = datetime.now()

@@ -48,23 +48,20 @@ def main():
             print("1. Time:",m_idx, get_time())
             _,im = camera.get_frame()
             print("2. Time:",m_idx, get_time())
-            len_contours,cte,countours_img,cutted_threshold,inversed,img_green_channel = get_deviation(im)
-
+            len_contours,cte,countours_img,cutted_threshold,inversed = get_deviation(im)
+            print("3. Time:",m_idx, get_time())
             if cte is None:
                 print("No deviation detected, skipping iteration.")
                 cte = 0
 
             if not os.path.exists("/home/toon/data/temp_data"):
                 os.makedirs("/home/toon/data/temp_data")
-            # if cte > 0.001 and right_turn_pid_reset == False:
-            #     pid.reset()
-            #     right_turn_pid_reset = True
-            #     pid_reset_current_idx = m_idx
-            
-            steer_pid = pid.control(cte = cte, dt = 0.15) 
-
-            cv2.imwrite(f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", countours_img)
-            cv2.imwrite(f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", cutted_threshold)
+            print("4. Time:",m_idx, get_time())
+            steer_pid = pid.control(cte = cte, dt = 0.086) 
+            print("5. Time:",m_idx, get_time())
+            # cv2.imwrite(f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", countours_img)
+            # cv2.imwrite(f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", cutted_threshold)
+            print("6. Time:",m_idx, get_time())
 
             betha = 0.15
             if state["enable_pid"] == 1:
@@ -88,7 +85,7 @@ def main():
 
             print("Steering Angle:",steer_pid)
             steering_angles.append(steer_pid)
-            print("3. Time:",m_idx, get_time())
+            print("7. Time:",m_idx, get_time())
             
             if im is None:
                 print("No frame captured, skipping iteration.")
@@ -113,10 +110,11 @@ def main():
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
                 print("Speed: {}, Turn: {}".format(speed, turn))
                 vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0))
-                print("2. Time:",m_idx,get_time())
-            time.sleep(0.05)  # Adjust the sleep time to control the loop frequency
+                print("8. Time:",m_idx,get_time())
+            # time.sleep(0.05)  # Adjust the sleep time to control the loop frequency
             m_idx += 1
             loop_end_time = time.time()
+            print("9. Time:",m_idx, get_time())
             print("Loop time:", loop_end_time - loop_start_time)
     except KeyboardInterrupt:
         # Graceful exit on keyboard interrupt (Ctrl+C)
