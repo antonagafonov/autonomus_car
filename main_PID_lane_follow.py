@@ -5,7 +5,6 @@ import atexit
 import RPi.GPIO as GPIO
 from queue import Queue
 from threading import Event
-# after the git crash 
 
 from ControllerModule import JoystickController
 from utils import VehicleSteering,calibrate_steering,get_deviation,PIDController,get_time
@@ -42,6 +41,7 @@ def main():
             loop_start_time = time.time()
             if m_idx - pid_reset_current_idx > 100:
                 right_turn_pid_reset = False
+
             # Retrieve the state from the joystick (you can define the joystick states as needed)
             # Here I assume 'state' is a dictionary with 'speed' and 'turn' as keys
             state = joystick.get()  # get_state() should return current joystick state
@@ -63,11 +63,8 @@ def main():
             
             steer_pid = pid.control(cte = cte, dt = 0.15) #change dt to 0.15
 
-            # cv2.imwrite(f"/home/toon/data/temp_data/img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", im)
             cv2.imwrite(f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", countours_img)
             cv2.imwrite(f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", cutted_threshold)
-            # cv2.imwrite(f"/home/toon/data/temp_data/inversed_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", inversed)
-            # cv2.imwrite(f"/home/toon/data/temp_data/img_green_channel_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", img_green_channel)
 
             betha = 0.15
             if state["enable_pid"] == 1:

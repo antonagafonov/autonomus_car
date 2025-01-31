@@ -315,9 +315,9 @@ class PIDController:
         - Kd: Derivative gain
         """
 
-        self.Kp = 0.006
-        self.Ki = 0.001
-        self.Kd = 0.0002
+        self.Kp_l = 0.006
+        self.Ki_l = 0.001
+        self.Kd_l = 0.0002
 
         # PID parameters for positive deviation
         self.Kp_r = 0.007 
@@ -348,9 +348,9 @@ class PIDController:
             Kd = self.Kd_r
         else:
             # Negative deviation, use regular PID parameters
-            Kp = self.Kp
-            Ki = self.Ki
-            Kd = self.Kd
+            Kp = self.Kp_l
+            Ki = self.Ki_l
+            Kd = self.Kd_l
 
 
         # Proportional term
