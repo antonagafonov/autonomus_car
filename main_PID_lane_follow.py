@@ -61,7 +61,7 @@ def main():
             #     right_turn_pid_reset = True
             #     pid_reset_current_idx = m_idx
             
-            steer_pid = pid.control(cte = cte, dt = 0.15) #change dt to 0.15
+            steer_pid = pid.control(cte = cte, dt = 0.15) 
 
             cv2.imwrite(f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", countours_img)
             cv2.imwrite(f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png", cutted_threshold)
