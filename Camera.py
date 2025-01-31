@@ -28,8 +28,19 @@ class ImageCapture:
     def configure_camera(self):
             """Configures the PiCamera2 for image capture."""
             if self.camera:
-                config = self.camera.create_still_configuration(main={"size": self.size},transform=libcamera.Transform(vflip=1, hflip=1))
+                config = self.camera.create_still_configuration(main={"size": self.size})
+                # config = self.camera.create_still_configuration(main={"size": self.size},transform=libcamera.Transform(vflip=1, hflip=1))
                 self.camera.configure(config)
+                # Apply manual exposure settings
+                self.camera.set_controls({
+                    # "ExposureTime": 60000,  # Reduce to avoid motion blur 30ms 
+                    # "ExposureTime": 150000, # night
+                    # "ExposureTime": 100000,
+                    # "AnalogueGain": 5.0,  # Increase gain to compensate for low light
+                    # "AwbEnable": True,  # Auto white balance for better color
+                    # "AnalogueGain": 5.0, # night
+                    "AnalogueGain": 1.20, # day
+                })
                 self.camera.start()
                 time.sleep(2)  # Allow the camera to initialize
                 print("Camera configured successfully.")

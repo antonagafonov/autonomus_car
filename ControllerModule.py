@@ -27,7 +27,8 @@ class JoystickController(threading.Thread):
             "boost": 0,   # 0 (off), 1 (on)
             "recording": 0,  # 0 (off), 1 (on)
             "exit": 0 ,      # 0 (off), 1 (on)
-            "timestep": self.get_time()
+            "timestep": self.get_time(),
+            "enable_pid": 0
         }
 
     def get_time(self):
@@ -92,6 +93,13 @@ class JoystickController(threading.Thread):
             else:
                 print("Button 4 pressed: Start Recording...")
                 self.state["recording"] = 1
+        elif button == 9:
+            if self.state["enable_pid"] == 1:
+                print("Button 9 pressed: Disable PID...")
+                self.state["enable_pid"] = 0
+            else:
+                print("Button 9 pressed: Enable PID...")
+                self.state["enable_pid"] = 1
         
     def handle_button_release(self, button):
         """Handle joystick button release events."""
