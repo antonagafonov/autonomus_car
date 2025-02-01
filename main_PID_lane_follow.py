@@ -41,8 +41,6 @@ def main():
         while not stop_event.is_set():
             loop_start_time = time.time()
 
-            # Retrieve the state from the joystick (you can define the joystick states as needed)
-            # Here I assume 'state' is a dictionary with 'speed' and 'turn' as keys
             state = joystick.get()  # get_state() should return current joystick state
         
             # print("1. Time:",m_idx, get_time())
