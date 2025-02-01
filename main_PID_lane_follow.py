@@ -28,6 +28,7 @@ def main():
     camera.start_capturing()
 
     data_collector = DataCollector()
+    data_collector.start()  # Start the thread
 
     pid = PIDController()
 
@@ -55,7 +56,7 @@ def main():
             if not os.path.exists("/home/toon/data/temp_data"):
                 os.makedirs("/home/toon/data/temp_data")
             # print("4. Time:",m_idx, get_time())
-            steer_pid = pid.control(cte = cte, dt = 0.085)  # Calculate the steering angle using PID
+            steer_pid = pid.control(cte = cte, dt = 0.055)  # Calculate the steering angle using PID
             # print("5. Time:",m_idx, get_time())
 
             # Prepare the filenames
@@ -80,7 +81,7 @@ def main():
             # print("5.5. Time:",m_idx, get_time())
             # print("6. Time:",m_idx, get_time())
 
-            betha = 0.10
+            betha = 0.15
             if state["enable_pid"] == 1:
                 prev_enable_pid = 1
                 if abs(steer_pid) > 0.3 and abs(steer_pid) < 0.6:
@@ -148,6 +149,9 @@ def main():
         try:
             # Graceful cleanup
             data_collector.save_data_to_file()
+            data_collector.stop()
+            print("Data collector stopped.")
+
             print("Stopping all components...")
             stop_event.set()  # Signal threads to stop
             vehicle_steering.exit_program()

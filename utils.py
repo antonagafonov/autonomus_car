@@ -300,7 +300,7 @@ def get_motor_action(   filtered_contours=None,
                         img= None,
                         height=None,
                         one_line_delta = 35,
-                        right_turn_coeff = 1.5
+                        right_turn_coeff = 1.8
                     ):
     # define cener line slightly to the right
     center_line = width // 2 - 50
@@ -468,6 +468,7 @@ class PIDController:
 
         # Return control output
         return round((P + I + D),4)  # Negative sign for correction
+    
     def reset(self):
         self.prev_error = 0.0
         self.integral = 0.0
