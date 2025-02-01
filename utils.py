@@ -174,53 +174,26 @@ def hsv_green_mask(image,trsh = 120):
     mask = cv2.medianBlur(mask, 21)
     # apply threshold on mask
     mask = cv2.threshold(mask, trsh, 255, cv2.THRESH_BINARY)[1]
-
+    # apply morphological operations
+    mask = cv2.dilate(mask, None, iterations=4)
     return mask
 
 def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # img = im_input[200:,:,:]
-    img = im_input[200:440,:,:]
+    img = im_input[250:440,:,:]
     width, height = img.shape[1], img.shape[0]
     # convert to RGB
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     threshold = hsv_green_mask(img)
 
-    # img_green_channel = img_rgb[:,:,1]
-
-    # # convert to grayscale
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # # apply gaussian blur
-    img_blured = cv2.GaussianBlur(img_gray, (21, 21), 0)
-    # img_green_channel_blured = cv2.GaussianBlur(img_green_channel, (21, 21), 0)
-
-    # # invert the image
-    inversed = cv2.bitwise_not(img_blured)
-    
-    # find mean and 0.3 top bright colors threshold of the image for thresholding
-    # mean = np.mean(inversed)
-    # dynamic_cut_threshold = int(mean * 1.3)
-    # print("cut_threshold: ",dynamic_cut_threshold)
-    # threshold the image 140 to 255
-    
-    # dynamic_thresh = np.percentile(inversed, thresh_percentile)
-    
-    # print("dynamic_thresh: ",dynamic_thresh)
-    # night_tresh = 220
-    # torch_tresh = 170
-
-    # _, threshold = cv2.threshold(cv2.GaussianBlur(cv2.bitwise_not(img_rgb[:,:,2]), (21, 21), 0), cut_threshold, 255, cv2.THRESH_BINARY) # night threshold
-    
-    # _, threshold = cv2.threshold(inversed, cut_threshold, 255, cv2.THRESH_BINARY) # day threshold
-    # print("threshold: ",threshold.shape)
-    # make triangle cut on the top right corner and on the top left corner from middle of the heeight to middle of the width
-    # fill with zeros top part of threshold
     threshold[:height//2, :] = 0
     cutted_threshold = threshold.copy()
 
-    # cutted_threshold[:height//2, width//2:] = 0
-    # cutted_threshold[:height//2, :width//2] = 0
+    cutted_threshold[:height//2, width//2:] = 0
+    cutted_threshold[:height//2, :width//2] = 0
+
+    countours_img = img_rgb.copy()
     # # Define the vertices for the left triangle (bottom-left to top-left quarter width)
     # left_triangle = np.array([
     #     [0, height],         # Bottom-left corner
@@ -244,22 +217,23 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     # cv2.imwrite(f"/home/toon/data/blue_cutted_trsh_temp.png", cutted_threshold)
     # cutted_threshold = close_open(cutted_threshold,ksize = 21)
 
-    countours_img = img_rgb.copy()
-    return inversed,cutted_threshold, img_rgb,countours_img,width,height
+    
+    return cutted_threshold, img_rgb,countours_img,width,height
 
-def process_contours(cutted_threshold,xl=20,xr=620,min_area=500,max_area = 6000):
+def process_contours(cutted_threshold,width,xl=50,xr=600,min_area=100,max_area = 10000):
 
     # find all clusters of white pixels in cutted_threshold
     contours, _ = cv2.findContours(cutted_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     filtered_contours = []
-
+    centers_list = []
     for contour in contours:
         # print("len(contour):",len(contour),"cv2.contourArea(contour):",cv2.contourArea(contour))
         M = cv2.moments(contour)
         if M["m00"] != 0:  # check if contour is non-zero area
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
+            centers_list.append((cX, cY))
             # print(cX, cY)
             # Filter contours based on x-coordinate of centroid
             if (xl < cX < xr) and (cv2.contourArea(contour) > min_area) and (cv2.contourArea(contour) < max_area):
@@ -326,8 +300,10 @@ def get_motor_action(   filtered_contours=None,
                         img= None,
                         height=None,
                         one_line_delta = 35,
-                        right_turn_coeff = 1.7
+                        right_turn_coeff = 1.5
                     ):
+    # define cener line slightly to the right
+    center_line = width // 2 - 50
     steer_action, speed_action = None, None
     angle_r, angle_l = None, None
     deviation = None
@@ -398,7 +374,7 @@ def get_motor_action(   filtered_contours=None,
         midpoint_x, midpoint_y = (top_right[0] + top_left[0]) // 2, (top_right[1] + top_left[1]) // 2
 
         # calculate deviation from center 
-        deviation = midpoint_x - width // 2
+        deviation = midpoint_x - center_line
         # draw center line
         cv2.line(img, (width//2, midpoint_y), (width//2, height), (255, 0, 0), 6)
         # draw in between lines line
@@ -438,14 +414,14 @@ class PIDController:
         - Kd: Derivative gain
         """
 
-        self.Kp_l = 0.008
-        self.Ki_l = 0.001
-        self.Kd_l = 0.0002
+        self.Kp_l = 0.006
+        self.Ki_l = 0.0005
+        self.Kd_l = 0.0001
 
         # PID parameters for positive deviation
-        self.Kp_r = 0.010 
-        self.Ki_r = 0.001
-        self.Kd_r = 0.0002
+        self.Kp_r = 0.006
+        self.Ki_r = 0.0005
+        self.Kd_r = 0.0001
 
         self.prev_error = 0.0
         self.integral = 0.0
@@ -499,9 +475,9 @@ class PIDController:
 def get_deviation(im_input):
     pid_steer, pid_speed = None, None
 
-    inversed,cutted_threshold, img_rgb,countours_img,width,height = process_image(im_input)
+    cutted_threshold, img_rgb,countours_img,width,height = process_image(im_input)
     
-    contours = process_contours(cutted_threshold)
+    contours = process_contours(cutted_threshold,width)
 
     cv2.drawContours(countours_img, contours, -1, (255, 0, 0), 3)
 
@@ -512,7 +488,7 @@ def get_deviation(im_input):
                                                                             img = countours_img,
                                                                             height=cutted_threshold.shape[0])   
     print("deviation: ",deviation)
-    return len_contours,deviation,countours_img,cutted_threshold,inversed
+    return len_contours,deviation,countours_img,cutted_threshold
 
 def get_time():
     now = datetime.now()

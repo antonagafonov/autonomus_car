@@ -21,7 +21,7 @@ class ImageCapture:
         self.shared_frame = self.manager.list([None])  # Initialize with None
         self.lock = mp.Lock()
         self.stop_event = self.manager.Event() 
-        self.settings = self.manager.dict({"AwbEnable": True, "AnalogueGain": 5.0})  # Shared config
+        self.settings = self.manager.dict({"AwbEnable": True, "AnalogueGain": 10.0})  # Shared config
 
         # Process for capturing images
         self.process = mp.Process(target=self._capture_process)
@@ -34,26 +34,26 @@ class ImageCapture:
                 # config = self.camera.create_still_configuration(main={"size": self.size},transform=libcamera.Transform(vflip=1, hflip=1))
                 self.camera.configure(config)
                 # Apply manual exposure settings
-                self.camera.set_controls({
-                                        "AnalogueGain": self.settings["AnalogueGain"],
-                                        "AwbEnable": self.settings["AwbEnable"],
-                                    })
                 # self.camera.set_controls({
-                #     # "ExposureTime": 60000,  # Reduce to avoid motion blur 30ms 
-                #     # "ExposureTime": 150000, # night
-                #     # "ExposureTime": 100000,
-                #     # "AnalogueGain": 5.0,  # Increase gain to compensate for low light
-                #     # "AwbEnable": True,  # Auto white balance for better color
-                #     # "AnalogueGain": 5.0, # night
-                #     # "AnalogueGain": 1.20, # day
-                #     # "ExposureTime": 150000,  # Adjust exposure time for night conditions
-                #     # "AnalogueGain": 5.0,     # Set analogue gain to brighten the image
-                #     # "AwbEnable": True,       # Enable auto white balance
-                #     # "Saturation": 0.5,       # Adjust saturation
-                #     # "Brightness": 0.5,       # Adjust brightness
-                #     # "Contrast": 1.0,         # Set contrast
-                #     # "Sharpness": 1.0, 
-                # })
+                #                         "AnalogueGain": self.settings["AnalogueGain"],
+                #                         "AwbEnable": self.settings["AwbEnable"],
+                #                     })
+                self.camera.set_controls({
+                    # "ExposureTime": 60000,  # Reduce to avoid motion blur 30ms 
+                    # "ExposureTime": 150000, # night
+                    # "ExposureTime": 100000,
+                    # "AnalogueGain": 5.0,  # Increase gain to compensate for low light
+                    # "AwbEnable": True,  # Auto white balance for better color
+                    # "AnalogueGain": 5.0, # night
+                    # "AnalogueGain": 1.20, # day
+                    # "ExposureTime": 150000,  # Adjust exposure time for night conditions
+                    "AnalogueGain": 5.0,     # Set analogue gain to brighten the image
+                    # "AwbEnable": True,       # Enable auto white balance
+                    # "Saturation": 0.5,       # Adjust saturation
+                    # "Brightness": 0.5,       # Adjust brightness
+                    # "Contrast": 1.0,         # Set contrast
+                    # "Sharpness": 1.0, 
+                })
                 self.camera.start()
                 time.sleep(2)  # Allow the camera to initialize
                 print("Camera configured successfully.")

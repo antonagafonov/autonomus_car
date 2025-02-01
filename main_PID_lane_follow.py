@@ -46,7 +46,7 @@ def main():
             # print("1. Time:",m_idx, get_time())
             _,im = camera.get_frame()
             # print("2. Time:",m_idx, get_time())
-            len_contours,cte,countours_img,cutted_threshold,inversed = get_deviation(im)
+            len_contours,cte,countours_img,cutted_threshold = get_deviation(im)
             # print("3. Time:",m_idx, get_time())
             if cte is None:
                 print("No deviation detected, skipping iteration.")
@@ -55,19 +55,19 @@ def main():
             if not os.path.exists("/home/toon/data/temp_data"):
                 os.makedirs("/home/toon/data/temp_data")
             # print("4. Time:",m_idx, get_time())
-            steer_pid = pid.control(cte = cte, dt = 0.075)  # Calculate the steering angle using PID
+            steer_pid = pid.control(cte = cte, dt = 0.085)  # Calculate the steering angle using PID
             # print("5. Time:",m_idx, get_time())
 
             # Prepare the filenames
-            img_filename = f"/home/toon/data/temp_data/img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
+            # img_filename = f"/home/toon/data/temp_data/img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
             countours_filename = f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
-            cutted_threshold_filename = f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
+            # cutted_threshold_filename = f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
             # create dict with img_filename , countours_filename and cutted_threshold_filename as keys and images as values
             img_dict = {}
             # print("5.1. Time:",m_idx, get_time())
-            img_dict[img_filename] = im
+            # img_dict[img_filename] = im
             img_dict[countours_filename] = countours_img
-            img_dict[cutted_threshold_filename] = cutted_threshold
+            # img_dict[cutted_threshold_filename] = cutted_threshold
             # print("5.2. Time:",m_idx, get_time())
             # Create threads for saving images
             thread = threading.Thread(target=save_images, args=(img_dict,))
@@ -80,7 +80,7 @@ def main():
             # print("5.5. Time:",m_idx, get_time())
             # print("6. Time:",m_idx, get_time())
 
-            betha = 0.3
+            betha = 0.10
             if state["enable_pid"] == 1:
                 prev_enable_pid = 1
                 if abs(steer_pid) > 0.3 and abs(steer_pid) < 0.6:
@@ -129,7 +129,7 @@ def main():
                 print("Speed: {}, Turn: {}".format(speed, turn))
                 # print("10.1. Time:",m_idx, get_time())
                 # self,speed=0.5,turn=0,boost = 0,t=0.05, steering_offset=0.0,s = 80
-                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.025)
+                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.01)
                 # print("11. Time:",m_idx,get_time())
             # time.sleep(0.05)  # Adjust the sleep time to control the loop frequency
             m_idx += 1
