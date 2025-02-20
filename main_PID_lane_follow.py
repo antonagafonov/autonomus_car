@@ -41,7 +41,7 @@ def main():
     loop_times = []
 
     steering_queue = deque(maxlen=20)  # Optional max length to limit size
-
+    inject_noise = False
     if not os.path.exists("/home/toon/data/temp_data"):
         os.makedirs("/home/toon/data/temp_data")
 
@@ -63,15 +63,15 @@ def main():
 
             # Add steer_pid to the queue
             steering_queue.append(float(steer_pid))
-
-            if state["enable_pid"] == 1:
-                steer_pid,noised = inject_noise(steering_queue)
-                if noised:
+            if inject_noise:
+                if state["enable_pid"] == 1:
+                    steer_pid,noised = inject_noise(steering_queue)
+                    if noised:
+                        steering_queue.clear()
+                    print("steer_pid,noised:",steer_pid,noised)
+                else:
                     steering_queue.clear()
-                print("steer_pid,noised:",steer_pid,noised)
-            else:
-                steering_queue.clear()
-                noised = False
+                    noised = False
                      
             betha = 0.3
             if state["enable_pid"] == 1:
