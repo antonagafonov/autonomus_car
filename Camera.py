@@ -14,7 +14,7 @@ class ImageCapture:
     The latest image is always stored in shared memory.
     """
 
-    def __init__(self, size=(640, 480)):
+    def __init__(self, size=(640, 480),offset = 30):
 
         # Shared memory and synchronization primitives
         self.manager = mp.Manager()
@@ -26,6 +26,7 @@ class ImageCapture:
         # Process for capturing images
         self.process = mp.Process(target=self._capture_process)
         self.size = size
+        self.offset = offset
         
     def configure_camera(self):
             """Configures the PiCamera2 for image capture."""
@@ -101,7 +102,7 @@ class ImageCapture:
                 # })
 
                 frame = self.camera.capture_array()
-
+                
                 with self.lock:
                     # print(f"Captured frame: {frame.shape} pushed with lock")
                     self.shared_frame[0] = frame
@@ -150,6 +151,8 @@ class ImageCapture:
         """
         with self.lock:
             frame = self.shared_frame[0]
+            # remove offset from right
+            frame = frame[:, :self.size[0]-self.offset, :]
             # return frame
             return self.preProcess(frame),frame
 

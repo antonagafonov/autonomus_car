@@ -6,6 +6,40 @@ import numpy as np
 from datetime import datetime
 import cv2
 import matplotlib.pyplot as plt
+import random
+from collections import deque
+from typing import Deque, Tuple
+import os
+
+def inject_noise(steering_queue: Deque[float]) -> Tuple[float, bool]:
+    """
+    Injects random noise into the steering value if the mean of the queue is less than 0.05.
+
+    If noise is added, returns a random steering value between ±0.4 and ±0.6.
+    Otherwise, returns the most recent steering value.
+
+    Args:
+        steering_queue (Deque[float]): A queue containing recent steering values.
+
+    Returns:
+        Tuple[float, bool]: 
+            - float: The new steering value.
+            - bool: True if noise was added, False otherwise.
+    """
+    if not steering_queue:  # Handle empty queue case
+        return 0.0, False
+
+    # Compute the mean of the absolute values
+    mean_steering = sum(abs(v) for v in steering_queue) / len(steering_queue)
+
+    print("mean_steering:",mean_steering,steering_queue)
+    if abs(mean_steering) < 0.1:  # Check if mean is close to zero
+        noise = random.uniform(0.4, 0.6) * random.choice([-1, 1])  # Random sign
+        return noise, True
+
+    # Return the last value if no noise is added
+    return steering_queue[-1], False
+
 
 def create_data_directories():
     """Ensure the necessary directories for data are created."""
@@ -220,7 +254,7 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     
     return cutted_threshold, img_rgb,countours_img,width,height
 
-def process_contours(cutted_threshold,width,xl=50,xr=600,min_area=100,max_area = 10000):
+def process_contours(cutted_threshold,width,xl=50,xr=620,min_area=100,max_area = 10000):
 
     # find all clusters of white pixels in cutted_threshold
     contours, _ = cv2.findContours(cutted_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -300,10 +334,11 @@ def get_motor_action(   filtered_contours=None,
                         img= None,
                         height=None,
                         one_line_delta = 35,
-                        right_turn_coeff = 1.8
+                        right_turn_coeff = 1.8,
+                        center_offset = 0
                     ):
     # define cener line slightly to the right
-    center_line = width // 2 - 50
+    center_line = width // 2 - center_offset
     steer_action, speed_action = None, None
     angle_r, angle_l = None, None
     deviation = None
@@ -376,7 +411,7 @@ def get_motor_action(   filtered_contours=None,
         # calculate deviation from center 
         deviation = midpoint_x - center_line
         # draw center line
-        cv2.line(img, (width//2, midpoint_y), (width//2, height), (255, 0, 0), 6)
+        cv2.line(img, (width//2, midpoint_y-100), (width//2, height), (255, 0, 0), 6)
         # draw in between lines line
         cv2.line(img, (midpoint_x, midpoint_y), (midpoint_x, height), (0, 255, 255), 2)
 
@@ -413,15 +448,18 @@ class PIDController:
         - Ki: Integral gain
         - Kd: Derivative gain
         """
+        self.Kp = 0.008 #0.006
+        self.Ki = 0.0005
+        self.Kd = 0.0001
 
-        self.Kp_l = 0.006
-        self.Ki_l = 0.0005
-        self.Kd_l = 0.0001
+        # self.Kp_l = 0.006
+        # self.Ki_l = 0.0005
+        # self.Kd_l = 0.0001
 
-        # PID parameters for positive deviation
-        self.Kp_r = 0.006
-        self.Ki_r = 0.0005
-        self.Kd_r = 0.0001
+        # # PID parameters for positive deviation
+        # self.Kp_r = 0.006
+        # self.Ki_r = 0.0005
+        # self.Kd_r = 0.0001
 
         self.prev_error = 0.0
         self.integral = 0.0
@@ -439,29 +477,28 @@ class PIDController:
         
         """
 
-        # Use different PID parameters based on the sign of the deviation (CTE)
-        if cte > 0.05:
-            # Positive deviation, use positive PID parameters
-            Kp = self.Kp_r
-            Ki = self.Ki_r
-            Kd = self.Kd_r
-        else:
-            # Negative deviation, use regular PID parameters
-            Kp = self.Kp_l
-            Ki = self.Ki_l
-            Kd = self.Kd_l
-
+        # # Use different PID parameters based on the sign of the deviation (CTE)
+        # if cte > 0.05:
+        #     # Positive deviation, use positive PID parameters
+        #     Kp = self.Kp_r
+        #     Ki = self.Ki_r
+        #     Kd = self.Kd_r
+        # else:
+        #     # Negative deviation, use regular PID parameters
+        #     Kp = self.Kp_l
+        #     Ki = self.Ki_l
+        #     Kd = self.Kd_l
 
         # Proportional term
-        P = Kp * cte
+        P = self.Kp * cte
 
         # Integral term
         self.integral += cte * dt
-        I = Ki * self.integral
+        I = self.Ki * self.integral
 
         # Derivative term
         derivative = (cte - self.prev_error) / dt if dt > 0 else 0.0
-        D = Kd * derivative
+        D = self.Kd * derivative
 
         # Update error
         self.prev_error = cte

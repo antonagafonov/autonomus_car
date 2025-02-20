@@ -13,6 +13,9 @@ from threading import Condition
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
+import cv2
+import numpy as np
+
 
 PAGE = """\
 <html>
@@ -34,7 +37,34 @@ class StreamingOutput(io.BufferedIOBase):
 
     def write(self, buf):
         with self.condition:
-            self.frame = buf
+            # self.frame = buf
+            # self.condition.notify_all()
+            # Convert JPEG buffer to a NumPy array
+            image_array = np.frombuffer(buf, dtype=np.uint8)
+
+            frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+            h, w, _ = frame.shape
+            print(frame.shape)
+            frame = frame = frame[:, :w-30, :]
+            frame = cv2.resize(frame, (320, 180))  # Resize
+            # Get image dimensions
+            h, w, _ = frame.shape
+            print(frame.shape)
+            center_x, center_y = w // 2, h // 2  # Center point
+            bottom_center = (w // 2, h)  # Bottom center of the image
+            left_middle = (0, h // 2)  # Middle of the left side
+            right_middle = (w, h // 2)  # Middle of the right side
+
+            # Draw the center red vertical line
+            cv2.line(frame, (center_x, 0), (center_x, h), (0, 0, 255), 2)
+
+            # Draw two lines from bottom center to left and right middle
+            cv2.line(frame, bottom_center, left_middle, (0, 255, 0), 2)
+            cv2.line(frame, bottom_center, right_middle, (0, 255, 0), 2)
+
+            # Encode frame back to JPEG format
+            _, encoded_frame = cv2.imencode('.jpg', frame)
+            self.frame = encoded_frame.tobytes()
             self.condition.notify_all()
 
 
@@ -82,8 +112,22 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
+def estimate_camera_matrix(width, height):
+    cx, cy = width / 2, height / 2
+    fx, fy = cx, cy  # Rough assumption
+    K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+    return K
 
-picam2 = Picamera2()
+def shift_camera_matrix_right(K, shift_value=100):
+    # Modify the principal point (cx)
+    K[0, 2] += shift_value  # Shifting cx to the right
+    return K
+
+picam2 = Picamera2()    
+print(picam2.sensor_modes)
+
+
+
 picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
 output = StreamingOutput()
 picam2.start_recording(JpegEncoder(), FileOutput(output))
