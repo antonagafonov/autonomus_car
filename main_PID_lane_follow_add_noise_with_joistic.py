@@ -12,7 +12,6 @@ from ControllerModule import JoystickController
 from utils import VehicleSteering,save_images,calibrate_steering,get_deviation,PIDController,get_time,inject_noise
 from DataCollector import DataCollector
 from Camera import ImageCapture
-import random
 
 def main():
     # Create a queue for communication between Joystick and VehicleSteering threads
@@ -60,14 +59,12 @@ def main():
 
             steer_pid, speed_pid = pid.control(cte = cte, dt = 0.055)  # Calculate the steering angle using PID
 
-            # if state["add_noise"] == 1:
-            #     # adding noise
-            #     noise = random.choice([-1, 1]) * random.uniform(0.4, 0.5)
-            #     steer_pid = steer_pid + noise
-        
             if state["enable_pid"] == 1:
-                # write pid steer value enable joistic controll
-                state["steering"] = steer_pid
+                if abs(state["steering"] ) > 0.1:
+                    pid.reset()
+                    pass
+                else:
+                    state["steering"] = steer_pid
                 state["forward"] = speed_pid
                 prev_enable_pid = 1
                 if len_contours == 1:
@@ -102,9 +99,9 @@ def main():
             if state["recording"] == 1:
                 print("Recording data...")
                 data_collector.saveData(im, state)
-
+            # print("8. Time:",m_idx, get_time())
             if state:  # Check if there's a valid state
-
+                # Joystick state: {'steering': -1,1,0, 'forward': 1,0, 'backward': 1,0}
                 if state.get("exit", 0) == 1:
                     vehicle_steering.stop_motors()
                     print("Exiting the program...")
@@ -117,14 +114,17 @@ def main():
                 else:
                     speed = 0.0
                     vehicle_steering.stop_motors()
-
+                # print("10. Time:",m_idx, get_time())
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
                 print("Speed: {}, Turn: {}".format(speed, turn))
-
-                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.0) 
-
+                # print("10.1. Time:",m_idx, get_time())
+                # self,speed=0.5,turn=0,boost = 0,t=0.05, steering_offset=0.0,s = 80
+                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.01)
+                # print("11. Time:",m_idx,get_time())
+            # time.sleep(0.05)  # Adjust the sleep time to control the loop frequency
             m_idx += 1
             loop_end_time = time.time()
+            # print("12. Time:",m_idx, get_time())
             loop_time = loop_end_time - loop_start_time
             print("Loop time:", loop_time)
             loop_times.append(loop_time)

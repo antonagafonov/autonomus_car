@@ -254,7 +254,7 @@ def process_image(im_input,cut_threshold = 190,thresh_percentile = 95):
     
     return cutted_threshold, img_rgb,countours_img,width,height
 
-def process_contours(cutted_threshold,width,xl=50,xr=620,min_area=100,max_area = 10000):
+def process_contours(cutted_threshold,width,xl=20,xr=620,min_area=300,max_area = 10000):
 
     # find all clusters of white pixels in cutted_threshold
     contours, _ = cv2.findContours(cutted_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -270,7 +270,7 @@ def process_contours(cutted_threshold,width,xl=50,xr=620,min_area=100,max_area =
             centers_list.append((cX, cY))
             # print(cX, cY)
             # Filter contours based on x-coordinate of centroid
-            if (xl < cX < xr) and (cv2.contourArea(contour) > min_area) and (cv2.contourArea(contour) < max_area):
+            if (xl < cX < xr) and (cv2.contourArea(contour) > min_area) and (cv2.contourArea(contour) < max_area):    
                 filtered_contours.append(contour)
 
     return filtered_contours
@@ -441,28 +441,29 @@ def get_motor_action(   filtered_contours=None,
 class PIDController:
     def __init__(self):
         """
-        Initialize PID controller with given gains.
+        Initialize PID controller with given gains and speed parameters.
 
-        Parameters:
-        - Kp: Proportional gain
-        - Ki: Integral gain
-        - Kd: Derivative gain
+        Attributes:
+        - Kp (float): Proportional gain for PID control.
+        - Ki (float): Integral gain for PID control.
+        - Kd (float): Derivative gain for PID control.
+        - prev_error (float): Stores the previous cross-track error (CTE).
+        - integral (float): Accumulates the integral of the error over time.
+        - max_speed (float): Maximum speed of the vehicle.
+        - min_speed (float): Minimum speed of the vehicle.
+        - speed_factor (float): Scaling factor that adjusts speed based on steering magnitude.
         """
-        self.Kp = 0.008 #0.006
+        self.Kp = 0.007
         self.Ki = 0.0005
-        self.Kd = 0.0001
-
-        # self.Kp_l = 0.006
-        # self.Ki_l = 0.0005
-        # self.Kd_l = 0.0001
-
-        # # PID parameters for positive deviation
-        # self.Kp_r = 0.006
-        # self.Ki_r = 0.0005
-        # self.Kd_r = 0.0001
+        self.Kd = 0.001 #0.0005 
 
         self.prev_error = 0.0
         self.integral = 0.0
+        
+        self.betha = 0.2
+        self.max_speed = 0.8 - self.betha
+        self.min_speed = 0.45 - self.betha
+        self.speed_factor = 0.6
 
     def control(self, cte, dt):
         """
@@ -476,19 +477,6 @@ class PIDController:
         - Steering angle adjustment
         
         """
-
-        # # Use different PID parameters based on the sign of the deviation (CTE)
-        # if cte > 0.05:
-        #     # Positive deviation, use positive PID parameters
-        #     Kp = self.Kp_r
-        #     Ki = self.Ki_r
-        #     Kd = self.Kd_r
-        # else:
-        #     # Negative deviation, use regular PID parameters
-        #     Kp = self.Kp_l
-        #     Ki = self.Ki_l
-        #     Kd = self.Kd_l
-
         # Proportional term
         P = self.Kp * cte
 
@@ -502,9 +490,12 @@ class PIDController:
 
         # Update error
         self.prev_error = cte
-
-        # Return control output
-        return round((P + I + D),4)  # Negative sign for correction
+        steering = round((P + I + D),4)  # Negative sign for correction
+        
+        # compute speed 
+        speed = self.max_speed - self.speed_factor * abs(steering)
+        speed = max(self.min_speed,min(self.max_speed, speed)) # clamping
+        return float(steering),float(round(speed,4))
     
     def reset(self):
         self.prev_error = 0.0

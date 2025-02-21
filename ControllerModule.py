@@ -31,6 +31,7 @@ class JoystickController(threading.Thread):
             "enable_pid": 0,
             "camera_0": 0,
             "camera_1": 0,
+            "add_noise": 0,
                     }
 
     def get_time(self):
@@ -119,6 +120,13 @@ class JoystickController(threading.Thread):
             else:
                 print("Button 9 pressed: Enable PID...")
                 self.state["enable_pid"] = 1
+        elif button == 10:
+            if self.state["add_noise"] == 1:
+                print("Button 10 pressed: add noise...")
+                self.state["add_noise"] = 0
+            else:
+                print("Button 10 pressed: don't add noise...")
+                self.state["add_noise"] = 1
         
     def handle_button_release(self, button):
         """Handle joystick button release events."""
