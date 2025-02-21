@@ -42,6 +42,7 @@ def main():
 
     steering_queue = deque(maxlen=20)  # Optional max length to limit size
     inject_noise = False
+    noised = 0
     if not os.path.exists("/home/toon/data/temp_data"):
         os.makedirs("/home/toon/data/temp_data")
 
@@ -61,22 +62,24 @@ def main():
 
             steer_pid = pid.control(cte = cte, dt = 0.055)  # Calculate the steering angle using PID
 
-            # Add steer_pid to the queue
-            steering_queue.append(float(steer_pid))
-            if inject_noise:
-                if state["enable_pid"] == 1:
-                    steer_pid,noised = inject_noise(steering_queue)
-                    if noised:
-                        steering_queue.clear()
-                    print("steer_pid,noised:",steer_pid,noised)
-                else:
-                    steering_queue.clear()
-                    noised = False
+            # # Add steer_pid to the queue
+            # steering_queue.append(float(steer_pid))
+            # if inject_noise:
+            #     if state["enable_pid"] == 1:
+            #         steer_pid,noised = inject_noise(steering_queue)
+            #         if noised:
+            #             steering_queue.clear()
+            #         print("steer_pid,noised:",steer_pid,noised)
+            #     else:
+            #         steering_queue.clear()
+            #         noised = False
                      
             betha = 0.3
             if state["enable_pid"] == 1:
-                # write pid steer value
-                state["steering"] = steer_pid
+                # write pid steer value enable joistic controll
+                # if abs(state["steering"]) < 0.05:
+                state["steering"] = float(steer_pid)
+
                 prev_enable_pid = 1
                 if abs(steer_pid) > 0.3 and abs(steer_pid) < 0.6:
                     state["forward"] = 0.3+betha
@@ -97,7 +100,7 @@ def main():
                 
             # Prepare the filenames
             # img_filename = f"/home/toon/data/temp_data/img_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
-            countours_filename = f"/home/toon/data/temp_data/countours_img_{m_idx}_{cte}_{state['steering']}_{noised}_{state['forward'] }_{str(state['enable_pid'])}.png"
+            countours_filename = f"/home/toon/data/temp_data/countours_img_idx_{m_idx}_cte_{cte}_st_{state['steering']}_fw_{state['forward'] }_pid_{str(state['enable_pid'])}.png"
             # cutted_threshold_filename = f"/home/toon/data/temp_data/cutted_threshold_{m_idx}_{cte}_{steer_pid}_{str(state['enable_pid'])}.png"
 
             img_dict = {}
