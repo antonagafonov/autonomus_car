@@ -121,7 +121,7 @@ def main():
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
                 print("Speed: {}, Turn: {}".format(speed, turn))
 
-                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.0) 
+                vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.01) 
 
             m_idx += 1
             loop_end_time = time.time()

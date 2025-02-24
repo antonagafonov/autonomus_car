@@ -454,8 +454,8 @@ class PIDController:
         - speed_factor (float): Scaling factor that adjusts speed based on steering magnitude.
         """
         self.Kp = 0.007
-        self.Ki = 0.0005
-        self.Kd = 0.001 #0.0005 
+        self.Ki = 0.0008
+        self.Kd = 0.0005 #0.0005 
 
         self.prev_error = 0.0
         self.integral = 0.0
