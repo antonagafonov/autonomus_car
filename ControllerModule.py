@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 
 class JoystickController(threading.Thread):
-    def __init__(self, input_queue=None, stop_event=None):
+    def __init__(self, input_queue=None, stop_event=None,dt = 0.1):
         """Initialize the joystick and motor control interface."""
         threading.Thread.__init__(self)
         pygame.init()
@@ -17,6 +17,7 @@ class JoystickController(threading.Thread):
         self.stop_event = stop_event
         self.input_queue = input_queue if input_queue else Queue()
         self.joystick = self.initialize_controller()
+        self.dt = dt
         if not self.joystick:
             raise Exception("No joystick detected!")
         # Shared state dictionary for joystick status (steering, forward, backward)
@@ -29,10 +30,11 @@ class JoystickController(threading.Thread):
             "exit": 0 ,      # 0 (off), 1 (on)
             "timestep": self.get_time(),
             "enable_pid": 0,
-            "camera_0": 0,
-            "camera_1": 0,
-            "add_noise": 0,
+            "loop_time": None,
+            "loop_target_time": self.dt,
                     }
+        self.state_output = {}
+        self.lock = threading.Lock()
 
     def get_time(self):
         now = datetime.now()
@@ -70,7 +72,11 @@ class JoystickController(threading.Thread):
                     if event.type == pygame.JOYAXISMOTION:
                         self.handle_axis_motion(event.axis, event.value)
                 self.add_timestep()
-                time.sleep(0.01)  # Limit polling rate
+                # Save state to state_output with lock
+                print("Joystick internal state:", self.state)
+                with self.lock:
+                    self.state_output = self.state.copy()
+                time.sleep(0.02)
         except KeyboardInterrupt:
             print("\nExiting...")
             pygame.quit()
@@ -171,4 +177,4 @@ class JoystickController(threading.Thread):
 
     def get(self):  
         """Return the shared state dictionary."""
-        return self.state
+        return self.state_output

@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import copy
 import queue
-
+from utils import get_time
 class DataCollector(threading.Thread):
     def __init__(self, output_dir="data"):
         """Initialize the data collector thread."""
@@ -24,8 +24,9 @@ class DataCollector(threading.Thread):
 
     def run(self):
         """Thread run method to process queued tasks."""
-        while self.running or not self.task_queue.empty():
+        while self.running:
             try:
+                print("[Data Collector] task_queue:", get_time())
                 task = self.task_queue.get(timeout=1)  # Get task from queue
                 if task:
                     image, state, idx = task

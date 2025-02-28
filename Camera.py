@@ -3,7 +3,8 @@ import os
 import cv2  # For web camera support
 import numpy as np
 import multiprocessing as mp
-from picamera2 import Picamera2, libcamera
+from picamera2 import Picamera2, Metadata
+from utils import get_time
 
 os.environ["LIBCAMERA_LOG_LEVELS"] = "ERROR"  # Only log errors
 
@@ -19,10 +20,9 @@ class ImageCapture:
         # Shared memory and synchronization primitives
         self.manager = mp.Manager()
         self.shared_frame = self.manager.list([None])  # Initialize with None
+        self.shared_timestamp = self.manager.Value("d", 0.0)  # Shared memory for timestamp
         self.lock = mp.Lock()
         self.stop_event = self.manager.Event() 
-        self.settings = self.manager.dict({"AwbEnable": True, "AnalogueGain": 10.0})  # Shared config
-
         # Process for capturing images
         self.process = mp.Process(target=self._capture_process)
         self.size = size
@@ -31,33 +31,22 @@ class ImageCapture:
     def configure_camera(self):
             """Configures the PiCamera2 for image capture."""
             if self.camera:
-                config = self.camera.create_still_configuration(main={"size": self.size})
-                # config = self.camera.create_still_configuration(main={"size": self.size},transform=libcamera.Transform(vflip=1, hflip=1))
-                self.camera.configure(config)
-                # Apply manual exposure settings
-                # self.camera.set_controls({
-                #                         "AnalogueGain": self.settings["AnalogueGain"],
-                #                         "AwbEnable": self.settings["AwbEnable"],
-                #                     })
-                self.camera.set_controls({
-                    # "ExposureTime": 60000,  # Reduce to avoid motion blur 30ms 
-                    # "ExposureTime": 150000, # night
-                    # "ExposureTime": 100000,
-                    # "AnalogueGain": 5.0,  # Increase gain to compensate for low light
-                    # "AwbEnable": True,  # Auto white balance for better color
-                    # "AnalogueGain": 5.0, # night
-                    # "AnalogueGain": 1.20, # day
-                    # "ExposureTime": 150000,  # Adjust exposure time for night conditions
-                    "AnalogueGain": 5.0,     # Set analogue gain to brighten the image
-                    # "AwbEnable": True,       # Enable auto white balance
-                    # "Saturation": 0.5,       # Adjust saturation
-                    # "Brightness": 0.5,       # Adjust brightness
-                    # "Contrast": 1.0,         # Set contrast
-                    # "Sharpness": 1.0, 
+                config = self.camera.create_video_configuration(
+                main={"size": (640, 480)},
+                # main={"size": (640, 480), "format": "YUV420"},
+                controls={
+                    "FrameRate": 30,            # Target 90 FPS
+                    "ExposureTime": 30000,       # Reduce exposure to allow higher FPS
+                    "AnalogueGain": 1.0,        # Fix gain to prevent auto adjustments
+                    "AwbEnable": True,         # Disable Auto White Balance
+                    "AeEnable": True,          # Disable Auto Exposure
+                    "FrameDurationLimits": (5000, 20000),  # Min exposure to allow 90 FPS
                 })
+                self.camera.configure(config)
                 self.camera.start()
-                time.sleep(2)  # Allow the camera to initialize
                 print("Camera configured successfully.")
+                metadata = Metadata(self.camera.capture_metadata())
+                print(metadata.ExposureTime, metadata.AnalogueGain)
             else:
                 print("Camera not available, cannot configure.")
 
@@ -83,7 +72,6 @@ class ImageCapture:
             self.camera = None
             
         self.configure_camera()
-        print(self.list_available_sizes())
         """Capture images in a separate process."""
         if self.camera is None:
             print("Camera not initialized. Exiting capture process.")
@@ -94,19 +82,16 @@ class ImageCapture:
         try:
             print("Capturing images...")
             while not self.stop_event.is_set():
-
-                # # Apply updated settings dynamically
-                # self.camera.set_controls({
-                #     "AnalogueGain": self.settings["AnalogueGain"],
-                #     "AwbEnable": self.settings["AwbEnable"],
-                # })
-
-                frame = self.camera.capture_array()
-                
+                # frame = self.camera.capture_array()
+                request = self.camera.capture_request()
+                # timestamp = get_time()
+                frame = request.make_array("main")
+                request.release()
+                print("[Picamera]:", get_time())
                 with self.lock:
-                    # print(f"Captured frame: {frame.shape} pushed with lock")
-                    self.shared_frame[0] = frame
-                time.sleep(0.01)  # ~100 FPS
+                    self.shared_frame[0] = frame.copy()
+                    # self.shared_timestamp.value = timestamp
+                # time.sleep(0.01)  # ~100 FPS
 
         except RuntimeError as e:
             print(f"Error during capture: {e}")
@@ -115,16 +100,6 @@ class ImageCapture:
             self.camera.stop()
             print("Camera capture stopped.")
             
-    def set_awb(self, enable: bool):
-        """Enable or disable auto white balance dynamically."""
-        self.settings["AwbEnable"] = enable
-        print(f"Auto White Balance set to {enable}")
-
-    def set_analogue_gain(self, gain: float):
-        """Set analogue gain dynamically."""
-        self.settings["AnalogueGain"] = gain
-        print(f"Analogue Gain set to {gain}")
-
     def preProcess(self, img):
         """Preprocess the image."""
         if img is None:
@@ -149,12 +124,14 @@ class ImageCapture:
         Returns the most recent frame captured by the camera.
         If no frame has been captured yet, returns None.
         """
-        with self.lock:
-            frame = self.shared_frame[0]
-            # remove offset from right
-            frame = frame[:, :self.size[0]-self.offset, :]
-            # return frame
-            return self.preProcess(frame),frame
+        # with self.lock:
+        frame = self.shared_frame[0].copy()
+        # timestamp = self.shared_timestamp.value
+        # remove offset from right
+        frame = frame[:, :self.size[0]-self.offset, :]
+        # return frame
+        return self.preProcess(frame),frame
+        # return None,frame
 
     def erase_frame(self):
         """Clears the shared frame."""
@@ -172,14 +149,6 @@ if __name__ == "__main__":
             tic = time.time()
             _,frame = cam.get_frame()
             print(f"Time to get frame: {time.time() - tic:.3f} s")
-            if frame is not None:
-                # print(f"Captured frame shape: {frame.shape}")
-                # save to file with idx name
-                cv2.imwrite(f"frame_{idx}.png", frame)
-                cam.erase_frame()
-            else:
-                print("Waiting for frame...")
-            time.sleep(0.3)  # Simulate processing delay
         cam.stop()
     except KeyboardInterrupt:
         print("Interrupted by user.")

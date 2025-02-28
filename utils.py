@@ -276,14 +276,14 @@ def process_contours(cutted_threshold,width,xl=20,xr=620,min_area=300,max_area =
     return filtered_contours
 
 def print_countour_info(contours,countours_img):
-    print('Contours:', len(contours))
+    # print('Contours:', len(contours))
     for contour in contours:
         M = cv2.moments(contour)
         if M["m00"] != 0:
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
             cv2.circle(countours_img, (cX, cY), 5, (0, 255, 0), -1)
-            print(cX, cY)
+            # print(cX, cY)
     return countours_img
 
 def create_line(cX = None, cY = None, contour = None,side = None, countours_img = None):
@@ -516,7 +516,7 @@ def get_deviation(im_input):
                                                                             width=cutted_threshold.shape[1],
                                                                             img = countours_img,
                                                                             height=cutted_threshold.shape[0])   
-    print("deviation: ",deviation)
+    # print("deviation: ",deviation)
     return len_contours,deviation,countours_img,cutted_threshold
 
 def get_time():
@@ -678,6 +678,7 @@ class VehicleSteering(threading.Thread):
             GPIO.output(self.in2b, GPIO.LOW)
         if t>0: # Stop if speed is zero
             sleep(t)
+        print("[Motor] motor move:",get_time())
 
     def stop_motors(self, t=0):
         """Stop the motors."""
