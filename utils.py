@@ -521,7 +521,7 @@ def get_deviation(im_input):
 
 def get_time():
     now = datetime.now()
-    formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:02d}"
+    formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:03d}"
     return formatted_time
 
 def calibrate_steering(turn,max_turn = 0.8):
@@ -531,11 +531,6 @@ def calibrate_steering(turn,max_turn = 0.8):
         return min(turn+(1-max_turn),0)
     else:
         return 0
-    
-def get_time():
-    now = datetime.now()
-    formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:02d}"
-    return formatted_time
 
 def create_control_signal(prediction, idx, record = False):
     if record:

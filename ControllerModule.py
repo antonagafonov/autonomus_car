@@ -35,7 +35,7 @@ class JoystickController(threading.Thread):
             "boost": 0,   # 0 (off), 1 (on)
             "recording": 0,  # 0 (off), 1 (on)
             "exit": 0 ,      # 0 (off), 1 (on)
-            "timestep": self.get_time(),
+            "timestamp": self.get_time(),
             "enable_pid": 0,
                     }
         
