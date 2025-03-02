@@ -5,9 +5,10 @@ import numpy as np
 import multiprocessing as mp
 from picamera2 import Picamera2, Metadata
 from utils import get_time
-
+import queue
+from threading import Thread
 os.environ["LIBCAMERA_LOG_LEVELS"] = "ERROR"  # Only log errors
-
+from copy import deepcopy
 
 class ImageCapture:
     """
@@ -15,7 +16,7 @@ class ImageCapture:
     The latest image is always stored in shared memory.
     """
 
-    def __init__(self, size=(640, 480),offset = 30):
+    def __init__(self, size=(640, 480),offset = 30,save_dir = "data"):
 
         # Shared memory and synchronization primitives
         self.manager = mp.Manager()
@@ -23,11 +24,25 @@ class ImageCapture:
         self.shared_timestamp = self.manager.Value("d", 0.0)  # Shared memory for timestamp
         self.lock = mp.Lock()
         self.stop_event = self.manager.Event() 
-        # Process for capturing images
         self.process = mp.Process(target=self._capture_process)
+
         self.size = size
         self.offset = offset
-        
+        self.task_queue = mp.Queue()  # Use multiprocessing.Queue
+
+        self.image_idx = 0
+
+        # Image saving directory
+        self.save_dir = save_dir
+        self.img_save_dir = os.path.join(self.save_dir, "saved_images")
+        os.makedirs(self.save_dir, exist_ok=True)
+        os.makedirs(self.img_save_dir, exist_ok=True)
+        self.csv_file = os.path.join(self.save_dir, "image_log.csv")
+
+        # Start background thread for saving images
+        self.saving_thread = Thread(target=self.save_images_from_queue, daemon=True)
+        self.saving_thread.start()
+
     def configure_camera(self):
             """Configures the PiCamera2 for image capture."""
             if self.camera:
@@ -36,11 +51,11 @@ class ImageCapture:
                 # main={"size": (640, 480), "format": "YUV420"},
                 controls={
                     "FrameRate": 30,            # Target 90 FPS
-                    "ExposureTime": 30000,       # Reduce exposure to allow higher FPS
+                    "ExposureTime": 20000,       # Reduce exposure to allow higher FPS
                     "AnalogueGain": 1.0,        # Fix gain to prevent auto adjustments
                     "AwbEnable": True,         # Disable Auto White Balance
                     "AeEnable": True,          # Disable Auto Exposure
-                    "FrameDurationLimits": (5000, 20000),  # Min exposure to allow 90 FPS
+                    "FrameDurationLimits": (5000, 30000),  # Min exposure to allow 90 FPS
                 })
                 self.camera.configure(config)
                 self.camera.start()
@@ -66,32 +81,33 @@ class ImageCapture:
         try:
             self.camera = Picamera2()
             print("PiCamera2 initialized successfully.")
-
         except RuntimeError as e:
             print(f"Error initializing PiCamera2: {e}")
             self.camera = None
-            
+            return
+        
         self.configure_camera()
-        """Capture images in a separate process."""
+
         if self.camera is None:
             print("Camera not initialized. Exiting capture process.")
             return
-        else:
-            print("Starting camera capture process...")
+        
+        print("Starting camera capture process...")
 
         try:
             print("Capturing images...")
             while not self.stop_event.is_set():
-                # frame = self.camera.capture_array()
                 request = self.camera.capture_request()
-                # timestamp = get_time()
                 frame = request.make_array("main")
                 request.release()
-                print("[Picamera]:", get_time())
+
                 with self.lock:
                     self.shared_frame[0] = frame.copy()
-                    # self.shared_timestamp.value = timestamp
-                # time.sleep(0.01)  # ~100 FPS
+
+                # Put frame into task queue for saving
+                self.task_queue.put((self.image_idx, self.shared_frame[0], get_time()))
+                self.image_idx += 1  # Increment image index
+                print("Captured image:", self.image_idx)
 
         except RuntimeError as e:
             print(f"Error during capture: {e}")
@@ -99,7 +115,28 @@ class ImageCapture:
         finally:
             self.camera.stop()
             print("Camera capture stopped.")
-            
+
+    def save_images_from_queue(self):
+        """Save images from the queue to disk."""
+        with open(self.csv_file, "w") as f:
+            f.write("index,timestamp,filename\n")  # CSV header
+        # print(self.task_queue)
+        while not self.stop_event.is_set():
+            print("Checking queue...")
+            try:
+                idx, frame, timestamp = self.task_queue.get(timeout=1)
+                print("Saving image:", idx)
+                filename = os.path.join(self.img_save_dir, f"image_{idx:06d}.jpg")
+                # save as rgb with cv2
+                cv2.imwrite(filename, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                # save as bgr with picamera
+                with open(self.csv_file,"a") as f:
+                    f.write(f"{idx},{timestamp},{filename}\n")
+            except queue.Empty:
+                print("Queue is empty.")
+                continue # Skip if queue is empty
+            print("Saved image:", idx)
+
     def preProcess(self, img):
         """Preprocess the image."""
         if img is None:
@@ -117,6 +154,11 @@ class ImageCapture:
         """Stops the image capture process."""
         self.stop_event.set()  # Signal the process to stop
         self.process.join()    # Wait for the process to finish
+        # wait for saving thread to finish than stop, add while that checks if queue is empty with 1 sec sleep
+        while not self.task_queue.empty():
+            time.sleep(1)
+        
+        self.saving_thread.join()
         print("ImageCapture process stopped.")
 
     def get_frame(self):
@@ -140,18 +182,20 @@ class ImageCapture:
             self.shared_frame[0] = None
 
 if __name__ == "__main__":
-    cam = ImageCapture(size = (1280, 960))
+    cam = ImageCapture(size = (640, 480))
     cam.start_capturing()  # Start the capture process
-    time.sleep(5) # Wait for the camera to initialize
+    time.sleep(2) # Wait for the camera to initialize
+    cam.stop()  # Stop the capture process
+    print("Program exited cleanly.")
 
-    try:
-        for idx in range(5):  # Capture 5 frames as a test
-            tic = time.time()
-            _,frame = cam.get_frame()
-            print(f"Time to get frame: {time.time() - tic:.3f} s")
-        cam.stop()
-    except KeyboardInterrupt:
-        print("Interrupted by user.")
-    finally:
-        cam.stop()  # Stop the capture process
-        print("Program exited cleanly.")
+    # try:
+    #     for idx in range(5):  # Capture 5 frames as a test
+    #         tic = time.time()
+    #         _,frame = cam.get_frame()
+    #         print(f"Time to get frame: {time.time() - tic:.3f} s")
+    #     cam.stop()
+    # except KeyboardInterrupt:
+    #     print("Interrupted by user.")
+    # finally:
+    #     cam.stop()  # Stop the capture process
+    #     print("Program exited cleanly.")

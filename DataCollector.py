@@ -6,6 +6,7 @@ import numpy as np
 import copy
 import queue
 from utils import get_time
+from threading import Thread
 class DataCollector(threading.Thread):
     def __init__(self, output_dir="data"):
         """Initialize the data collector thread."""
@@ -19,7 +20,6 @@ class DataCollector(threading.Thread):
         self.running = True
         self.idx = 0
         self.task_queue = queue.Queue()  # Task queue for saveData
-
         print("Data collector initialized.")
 
     def run(self):

@@ -5,9 +5,11 @@ import threading
 from queue import Queue
 import time
 from datetime import datetime
-
+from copy import deepcopy
+import os 
+import csv
 class JoystickController(threading.Thread):
-    def __init__(self, input_queue=None, stop_event=None,dt = 0.1):
+    def __init__(self, input_queue=None, stop_event=None,dt = 0.01, output_dir="data"):
         """Initialize the joystick and motor control interface."""
         threading.Thread.__init__(self)
         pygame.init()
@@ -18,10 +20,15 @@ class JoystickController(threading.Thread):
         self.input_queue = input_queue if input_queue else Queue()
         self.joystick = self.initialize_controller()
         self.dt = dt
+        self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+            print(f"Output directory created: {self.output_dir}")
         if not self.joystick:
             raise Exception("No joystick detected!")
         # Shared state dictionary for joystick status (steering, forward, backward)
         self.state = {
+            "idx": -1,
             "steering": 0,  # -1 (left), 0 (center), 1 (right)
             "forward": 0,   # 0 (off), 1 (on)
             "backward": 0,
@@ -30,11 +37,12 @@ class JoystickController(threading.Thread):
             "exit": 0 ,      # 0 (off), 1 (on)
             "timestep": self.get_time(),
             "enable_pid": 0,
-            "loop_time": None,
-            "loop_target_time": self.dt,
                     }
+        
         self.state_output = {}
         self.lock = threading.Lock()
+        self.states_array = []
+        self.states_array.append(self.state)
 
     def get_time(self):
         now = datetime.now()
@@ -57,6 +65,27 @@ class JoystickController(threading.Thread):
     
     def add_timestep(self):
         self.state["timestep"] = self.get_time()
+        self.state["idx"] += 1
+
+    def save_state_to_array(self):
+        with self.lock:
+            save_state = deepcopy(self.state_output)
+            self.states_array.append(save_state)
+
+    def save_data_to_file(self):
+        """Save the collected data to a file."""
+        filename = os.path.join(self.output_dir, "steering_data.csv")
+
+        collumnnames = self.states_array[0].keys()
+        print(self.states_array[:5])
+        self.states_array.sort(key=lambda x: int(x["idx"]))
+        print("Saving data to file...")
+
+        with open(filename, 'w',newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=collumnnames)
+            writer.writeheader()
+            writer.writerows(self.states_array)
+        print(f"Data saved to {filename}")
 
     def process_inputs(self):
         """Poll controller inputs and process joystick events."""
@@ -73,10 +102,14 @@ class JoystickController(threading.Thread):
                         self.handle_axis_motion(event.axis, event.value)
                 self.add_timestep()
                 # Save state to state_output with lock
-                print("Joystick internal state:", self.state)
+                # print("Joystick internal state:", self.state)
                 with self.lock:
                     self.state_output = self.state.copy()
-                time.sleep(0.02)
+
+                self.save_state_to_array()
+                time.sleep(self.dt)
+                            
+                    
         except KeyboardInterrupt:
             print("\nExiting...")
             pygame.quit()
@@ -173,6 +206,7 @@ class JoystickController(threading.Thread):
 
     def stop(self):
         """Stop the joystick controller thread."""
+        self.save_data_to_file()
         self.join()
 
     def get(self):  
