@@ -29,8 +29,8 @@ def main(dt = 0.020):
 
     camera.start_capturing()
 
-    data_collector = DataCollector()
-    data_collector.start()  # Start the thread
+    # data_collector = DataCollector()
+    # data_collector.start()  # Start the thread
 
     pid = PIDController()
 
@@ -114,7 +114,7 @@ def main(dt = 0.020):
                 turn = state.get('steering', 0)  # Default turn to 0 if not in state
                 
                 vehicle_steering.move(speed=speed, turn=-turn,boost = state.get('boost',0),t=0.0) 
-                print("move. Time:",m_idx, get_time())
+                # print("move. Time:",m_idx, get_time())
             m_idx += 1
             loop_end_time = time.time()
             loop_time = loop_end_time - loop_start_time
@@ -140,9 +140,9 @@ def main(dt = 0.020):
     finally:
         try:
             # Graceful cleanup
-            data_collector.save_data_to_file()
-            data_collector.stop()
-            print("Data collector stopped.")
+            # data_collector.save_data_to_file()
+            # data_collector.stop()
+            # print("Data collector stopped.")
 
             print("Stopping all components...")
             stop_event.set()  # Signal threads to stop

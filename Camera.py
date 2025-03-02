@@ -122,10 +122,10 @@ class ImageCapture:
             f.write("index,timestamp,filename\n")  # CSV header
         # print(self.task_queue)
         while not self.stop_event.is_set():
-            print("Checking queue...")
+            # print("Checking queue...")
             try:
                 idx, frame, timestamp = self.task_queue.get(timeout=1)
-                print("Saving image:", idx)
+                # print("Saving image:", idx)
                 filename = os.path.join(self.img_save_dir, f"image_{idx:06d}.jpg")
                 # save as rgb with cv2
                 cv2.imwrite(filename, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -133,9 +133,9 @@ class ImageCapture:
                 with open(self.csv_file,"a") as f:
                     f.write(f"{idx},{timestamp},{filename}\n")
             except queue.Empty:
-                print("Queue is empty.")
+                # print("Queue is empty.")
                 continue # Skip if queue is empty
-            print("Saved image:", idx)
+            # print("Saved image:", idx)
 
     def preProcess(self, img):
         """Preprocess the image."""

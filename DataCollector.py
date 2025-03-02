@@ -26,7 +26,7 @@ class DataCollector(threading.Thread):
         """Thread run method to process queued tasks."""
         while self.running:
             try:
-                print("[Data Collector] task_queue:", get_time())
+                # print("[Data Collector] task_queue:", get_time())
                 task = self.task_queue.get(timeout=1)  # Get task from queue
                 if task:
                     image, state, idx = task

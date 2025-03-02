@@ -8,6 +8,7 @@ from datetime import datetime
 from copy import deepcopy
 import os 
 import csv
+from utils import get_time
 class JoystickController(threading.Thread):
     def __init__(self, input_queue=None, stop_event=None,dt = 0.01, output_dir="data"):
         """Initialize the joystick and motor control interface."""
@@ -35,7 +36,7 @@ class JoystickController(threading.Thread):
             "boost": 0,   # 0 (off), 1 (on)
             "recording": 0,  # 0 (off), 1 (on)
             "exit": 0 ,      # 0 (off), 1 (on)
-            "timestamp": self.get_time(),
+            "timestamp": get_time(),
             "enable_pid": 0,
                     }
         
@@ -43,11 +44,6 @@ class JoystickController(threading.Thread):
         self.lock = threading.Lock()
         self.states_array = []
         self.states_array.append(self.state)
-
-    def get_time(self):
-        now = datetime.now()
-        formatted_time = now.strftime("%d:%m:%Y:%H:%M:%S") + f":{now.microsecond // 1000:02d}"
-        return formatted_time
 
     def initialize_controller(self):
         """Initialize the first joystick if available."""
@@ -64,7 +60,7 @@ class JoystickController(threading.Thread):
         return joystick
     
     def add_timestep(self):
-        self.state["timestep"] = self.get_time()
+        self.state["timestamp"] = get_time()
         self.state["idx"] += 1
 
     def save_state_to_array(self):
@@ -125,18 +121,18 @@ class JoystickController(threading.Thread):
 
         elif button == 2:  # Button 3 pressed (camera 0)
             if self.state["camera_0"] == 1:
-                print("Button 2 pressed: Camera 0 OFF")
+                # print("Button 2 pressed: Camera 0 OFF")
                 self.state["camera_0"] = 0
             else:
-                print("Button 2 pressed: Camera 0 ON")
+                # print("Button 2 pressed: Camera 0 ON")
                 self.state["camera_0"] = 1
                 
         elif button == 3:  # Button 4 pressed
             if self.state["camera_1"] == 1:
-                print("Button 3 pressed: Camera 1 OFF")
+                # print("Button 3 pressed: Camera 1 OFF")
                 self.state["camera_1"] = 0
             else:
-                print("Button 3 pressed: Camera 1 ON")
+                # print("Button 3 pressed: Camera 1 ON")
                 self.state["camera_1"] = 1
 
         elif button == 8:

@@ -673,7 +673,7 @@ class VehicleSteering(threading.Thread):
             GPIO.output(self.in2b, GPIO.LOW)
         if t>0: # Stop if speed is zero
             sleep(t)
-        print("[Motor] motor move:",get_time())
+        # print("[Motor] motor move:",get_time())
 
     def stop_motors(self, t=0):
         """Stop the motors."""
