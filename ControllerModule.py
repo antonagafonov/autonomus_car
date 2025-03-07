@@ -10,7 +10,7 @@ import os
 import csv
 from utils import get_time
 class JoystickController(threading.Thread):
-    def __init__(self, input_queue=None, stop_event=None,dt = 0.01, output_dir="data"):
+    def __init__(self, input_queue=None, stop_event=None,dt = 0.010, output_dir="data"):
         """Initialize the joystick and motor control interface."""
         threading.Thread.__init__(self)
         pygame.init()
