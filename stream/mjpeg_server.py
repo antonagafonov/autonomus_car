@@ -44,12 +44,12 @@ class StreamingOutput(io.BufferedIOBase):
 
             frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
             h, w, _ = frame.shape
-            print(frame.shape)
+            # print(frame.shape)
             frame = frame = frame[:, :w-30, :]
             frame = cv2.resize(frame, (320, 180))  # Resize
             # Get image dimensions
             h, w, _ = frame.shape
-            print(frame.shape)
+            # print(frame.shape)
             center_x, center_y = w // 2, h // 2  # Center point
             bottom_center = (w // 2, h)  # Bottom center of the image
             left_middle = (0, h // 2)  # Middle of the left side

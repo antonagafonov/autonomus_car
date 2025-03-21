@@ -26,7 +26,7 @@ def delay_timestamp(df, col = 'timestamp',dt = 200):
     for idx, ts in enumerate(timestamp_col):
         # 2032025204609191 -> 2032025204609191 + 200
         ts = int(ts)
-        ts += dt
+        ts -= dt
         # write to the dataframe
         df_copy.at[idx, col] = ts
 
@@ -41,7 +41,7 @@ joystick_data["timestamp"] = joystick_data["timestamp"].apply(convert_timestamp)
 image_data["timestamp"] = image_data["timestamp"].apply(convert_timestamp)
 
 # !!!!!!!!!!!!!!! Delay the image data by 200 ms !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-image_data_delayed = delay_timestamp(image_data, col = 'timestamp',dt = 200)
+image_data_delayed = delay_timestamp(image_data, col = 'timestamp',dt = 260)
 # save the delayed image data
 image_data_delayed.to_csv("/home/toon/data/image_log_delayed.csv", index=False)
 image_data = image_data_delayed
