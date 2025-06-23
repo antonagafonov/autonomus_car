@@ -32,7 +32,7 @@ def main(dt = 0.020):
     # data_collector = DataCollector()
     # data_collector.start()  # Start the thread
 
-    pid = PIDController()
+    # pid = PIDController()
 
     # wait 2 seconds for the threads to start
     time.sleep(5)
